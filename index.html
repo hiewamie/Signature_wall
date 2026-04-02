@@ -36,7 +36,7 @@
   #status { position: fixed; top: 16px; right: 20px; z-index: 10; font-family: 'Orbitron', monospace; font-size: 10px; letter-spacing: 0.15em; color: rgba(255,255,255,0.2); display: flex; align-items: center; gap: 6px; }
   #status-dot { width: 6px; height: 6px; border-radius: 50%; background: #2ecc71; animation: pulse 2s infinite; }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
- 
+
   /* Announcement overlay */
   #announce {
     position: fixed; top: 50%; left: 50%;
@@ -61,7 +61,7 @@
     72%  { opacity: 1; transform: translate(-50%,-50%) scale(1); }
     100% { opacity: 0; transform: translate(-50%,-90%) scale(0.6); }
   }
- 
+
   .ripple {
     position: fixed; border-radius: 50%;
     border: 1.5px solid var(--cyan); pointer-events: none;
@@ -83,24 +83,24 @@
   <img id="announce-sig" src="" alt="" />
   <div id="announce-name"></div>
 </div>
- 
+
 <script>
 const SUPABASE_URL = 'https://gpdkcalhqbvztctoofwh.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdwZGtjYWxocWJ2enRjdG9vZndoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxMjIwMTksImV4cCI6MjA5MDY5ODAxOX0.M3B25IWhogS_8hKONXOjcjn4rFaJcBhIYWB77q2Z-Ew';
- 
+
 // Binary background
 const binBg = document.getElementById('binary-bg');
 let b = '';
 for (let i = 0; i < 55; i++) { for (let j = 0; j < 130; j++) b += Math.random() > 0.5 ? '1' : '0'; b += '\n'; }
 binBg.textContent = b;
- 
+
 // Canvas setup
 const canvas = document.getElementById('sphere-canvas');
 const ctx = canvas.getContext('2d');
 let W, H, cx, cy, R;
 function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; cx = W/2; cy = H/2; R = Math.min(W,H)*0.33; }
 resize(); window.addEventListener('resize', resize);
- 
+
 // Signatures stored as unit-sphere coords (fx, fy, fz)
 const signatures = [];
 let rotY = 0, rotX = 0.28;
@@ -109,34 +109,34 @@ canvas.addEventListener('mousedown', e => { isDragging=true; lastMX=e.clientX; l
 canvas.addEventListener('mousemove', e => { if(!isDragging)return; rotY+=(e.clientX-lastMX)*0.005; rotX+=(e.clientY-lastMY)*0.003; lastMX=e.clientX; lastMY=e.clientY; });
 canvas.addEventListener('mouseup', ()=>isDragging=false);
 canvas.addEventListener('mouseleave', ()=>isDragging=false);
- 
+
 // Touch support
 canvas.addEventListener('touchstart', e => { isDragging=true; lastMX=e.touches[0].clientX; lastMY=e.touches[0].clientY; });
 canvas.addEventListener('touchmove', e => { if(!isDragging)return; e.preventDefault(); rotY+=(e.touches[0].clientX-lastMX)*0.005; rotX+=(e.touches[0].clientY-lastMY)*0.003; lastMX=e.touches[0].clientX; lastMY=e.touches[0].clientY; }, { passive:false });
 canvas.addEventListener('touchend', ()=>isDragging=false);
- 
+
 // Project a 3D point (already in world space) → 2D screen coords
 // Applies rotY then rotX rotation each frame
 function project(fx, fy, fz) {
   // Scale to sphere radius
   let x = fx * R, y = fy * R, z = fz * R;
- 
+
   // Rotate around Y axis
   const cY = Math.cos(rotY), sY = Math.sin(rotY);
   let rx = x * cY - z * sY;
   let rz = x * sY + z * cY;
   let ry = y;
- 
+
   // Rotate around X axis
   const cX = Math.cos(rotX), sX = Math.sin(rotX);
   let ry2 = ry * cX - rz * sX;
   let rz2 = ry * sX + rz * cX;
- 
+
   const fov = 900;
   const sc = fov / (fov + rz2);
   return { sx: cx + rx * sc, sy: cy + ry2 * sc, scale: sc, depth: rz2 };
 }
- 
+
 function fibonacciPos(index, total) {
   const golden = Math.PI * (3 - Math.sqrt(5));
   const y = 1 - (index / (Math.max(total - 1, 1))) * 2;
@@ -144,7 +144,7 @@ function fibonacciPos(index, total) {
   const theta = golden * index;
   return { x: r * Math.cos(theta), y, z: r * Math.sin(theta) };
 }
- 
+
 function repositionAll() {
   const total = signatures.length;
   signatures.forEach((s, i) => {
@@ -152,7 +152,7 @@ function repositionAll() {
     s.fx = p.x; s.fy = p.y; s.fz = p.z;
   });
 }
- 
+
 function addToSphere(dataURL, name) {
   const img = new Image();
   img.src = dataURL;
@@ -160,7 +160,7 @@ function addToSphere(dataURL, name) {
   repositionAll();
   document.getElementById('sig-count').textContent = signatures.length;
 }
- 
+
 function drawWireframe() {
   ctx.save();
   ctx.strokeStyle = 'rgba(0,229,255,0.055)';
@@ -195,45 +195,45 @@ function drawWireframe() {
   }
   ctx.restore();
 }
- 
+
 function animate() {
   ctx.clearRect(0, 0, W, H);
   if (!isDragging) rotY += 0.003;
- 
+
   // Ambient glow
   const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 1.2);
   g.addColorStop(0, 'rgba(26,108,255,0.05)');
   g.addColorStop(0.6, 'rgba(0,229,255,0.02)');
   g.addColorStop(1, 'transparent');
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
- 
+
   drawWireframe();
- 
+
   // Project all signatures using current rotation, then sort by depth (back to front)
   const projected = signatures.map(s => {
     const p = project(s.fx, s.fy, s.fz);
     return { s, ...p };
   }).sort((a, b) => a.depth - b.depth);
- 
+
   for (const item of projected) {
     const { s, sx, sy, scale, depth } = item;
     if (!s.img.complete || s.img.naturalWidth === 0) continue;
     if (s.opacity < 1) s.opacity = Math.min(1, s.opacity + 0.025);
- 
+
     // Fade signatures on the back of the sphere
     const depthFade = Math.max(0.07, (depth + R) / (2 * R));
     const w = 110 * scale, h = 44 * scale;
- 
+
     ctx.save();
     ctx.globalAlpha = depthFade * s.opacity;
     ctx.drawImage(s.img, sx - w / 2, sy - h / 2, w, h);
     ctx.restore();
   }
- 
+
   requestAnimationFrame(animate);
 }
 animate();
- 
+
 // Show new signature announcement
 function showAnnouncement(dataURL, name) {
   const ann = document.getElementById('announce');
@@ -242,7 +242,7 @@ function showAnnouncement(dataURL, name) {
   ann.classList.remove('show');
   void ann.offsetWidth; // force reflow to restart animation
   ann.classList.add('show');
- 
+
   // Ripple effect from center
   const el = document.createElement('div');
   el.className = 'ripple';
@@ -251,10 +251,10 @@ function showAnnouncement(dataURL, name) {
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 1500);
 }
- 
+
 // Track which IDs we've already loaded to avoid duplicates from polling
 const seenIds = new Set();
- 
+
 // Load existing signatures from Supabase REST
 async function loadExisting() {
   try {
@@ -270,19 +270,19 @@ async function loadExisting() {
     }
   } catch(e) { console.error('loadExisting error:', e); }
 }
- 
+
 // ─── Supabase Realtime (Phoenix protocol v2) ───────────────────────────────
 // Supabase's newer realtime endpoint uses a slightly different join payload
 let heartbeatInterval = null;
 let realtimeRef = 1;
- 
+
 function subscribeRealtime() {
   const wsUrl = `wss://gpdkcalhqbvztctoofwh.supabase.co/realtime/v1/websocket?apikey=${SUPABASE_ANON}&vsn=1.0.0`;
   const ws = new WebSocket(wsUrl);
- 
+
   ws.onopen = () => {
     console.log('[Realtime] connected');
- 
+
     // Join the postgres_changes channel
     ws.send(JSON.stringify({
       topic: 'realtime:public:signatures',
@@ -296,17 +296,17 @@ function subscribeRealtime() {
       },
       ref: String(realtimeRef++)
     }));
- 
+
     // Heartbeat every 25 s to keep the connection alive
     heartbeatInterval = setInterval(() => {
       ws.send(JSON.stringify({ topic: 'phoenix', event: 'heartbeat', payload: {}, ref: String(realtimeRef++) }));
     }, 25000);
   };
- 
+
   ws.onmessage = e => {
     let msg;
     try { msg = JSON.parse(e.data); } catch { return; }
- 
+
     // Postgres change INSERT event arrives as event = "postgres_changes" or inside payload
     if (
       (msg.event === 'INSERT' || msg.event === 'postgres_changes') &&
@@ -314,31 +314,31 @@ function subscribeRealtime() {
     ) {
       handleNewRow(msg.payload.data.record);
     }
- 
+
     // Some versions wrap it differently
     if (msg.event === 'phx_reply' && msg.payload?.response?.postgres_changes) {
       // subscription confirmed, nothing to do
     }
   };
- 
+
   ws.onerror = err => console.warn('[Realtime] error', err);
- 
+
   ws.onclose = () => {
     console.log('[Realtime] disconnected, reconnecting in 3 s…');
     clearInterval(heartbeatInterval);
     setTimeout(subscribeRealtime, 3000);
   };
 }
- 
+
 function handleNewRow(row) {
   if (!row || seenIds.has(row.id)) return;
   seenIds.add(row.id);
- 
+
   // Show the "fly-in" announcement first, then add to sphere after 2.4 s
   showAnnouncement(row.image_data, row.name);
   setTimeout(() => addToSphere(row.image_data, row.name), 2400);
 }
- 
+
 // ─── Polling fallback ──────────────────────────────────────────────────────
 // Polls every 5 s in case WebSocket drops or realtime event format differs
 async function pollForNew() {
@@ -355,7 +355,7 @@ async function pollForNew() {
     }
   } catch(e) { /* silent */ }
 }
- 
+
 // Init
 loadExisting().then(() => {
   subscribeRealtime();
