@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>签名签到 · Signature Wall</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400&family=Orbitron:wght@400;700&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root { --bg: #04050f; --cyan: #00e5ff; --blue: #1a6cff; --purple: #7b2fff; }
+  body { background: var(--bg); color: #fff; font-family: 'Noto Sans SC', sans-serif; overflow: hidden; height: 100vh; width: 100vw; }
+  body::before {
+    content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background: radial-gradient(ellipse 60% 50% at 70% 50%, rgba(26,108,255,0.09) 0%, transparent 70%),
+                radial-gradient(ellipse 40% 60% at 30% 50%, rgba(123,47,255,0.07) 0%, transparent 70%);
+  }
+  #binary-bg {
+    position: fixed; inset: 0; opacity: 0.06; z-index: 0; overflow: hidden;
+    font-family: monospace; font-size: 12px; color: var(--cyan); line-height: 1.4;
+    letter-spacing: 2px; pointer-events: none; white-space: pre;
+  }
+  #sphere-canvas { position: fixed; inset: 0; z-index: 1; }
+  #title { position: fixed; top: 28px; left: 50%; transform: translateX(-50%); z-index: 10; text-align: center; pointer-events: none; }
+  #title h1 {
+    font-family: 'Orbitron', monospace; font-size: clamp(14px, 2vw, 22px);
+    font-weight: 700; letter-spacing: 0.3em; color: var(--cyan);
+    text-shadow: 0 0 20px rgba(0,229,255,0.7), 0 0 50px rgba(0,229,255,0.3);
+  }
+  #title p { font-size: 12px; color: rgba(255,255,255,0.35); letter-spacing: 0.15em; margin-top: 4px; }
+  #counter {
+    position: fixed; bottom: 36px; left: 50%; transform: translateX(-50%);
+    z-index: 10; font-family: 'Orbitron', monospace; font-size: 11px;
+    letter-spacing: 0.25em; color: rgba(255,255,255,0.25); pointer-events: none;
+  }
+  #counter span { color: var(--cyan); font-size: 20px; font-weight: 700; }
+  #status { position: fixed; top: 16px; right: 20px; z-index: 10; font-family: 'Orbitron', monospace; font-size: 10px; letter-spacing: 0.15em; color: rgba(255,255,255,0.2); display: flex; align-items: center; gap: 6px; }
+  #status-dot { width: 6px; height: 6px; border-radius: 50%; background: #2ecc71; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  #announce { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%) scale(0.8); z-index: 200; text-align: center; pointer-events: none; opacity: 0; }
+  #announce.show { animation: announceAnim 3.5s ease forwards; }
+  #announce-sig { max-width: 360px; max-height: 160px; filter: drop-shadow(0 0 30px rgba(0,180,255,0.9)) drop-shadow(0 0 60px rgba(0,120,255,0.5)); }
+  #announce-name { font-family: 'Orbitron', monospace; font-size: 14px; letter-spacing: 0.25em; color: #fff; margin-top: 16px; text-shadow: 0 0 20px rgba(0,229,255,1), 0 0 40px rgba(0,180,255,0.7); }
+  @keyframes announceAnim {
+    0%   { opacity: 0; transform: translate(-50%,-50%) scale(0.4); }
+    12%  { opacity: 1; transform: translate(-50%,-50%) scale(1.06); }
+    25%  { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+    72%  { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%,-90%) scale(0.6); }
+  }
+  .ripple { position: fixed; border-radius: 50%; border: 1.5px solid var(--cyan); pointer-events: none; animation: rippleAnim 1.4s ease-out forwards; z-index: 5; }
+  @keyframes rippleAnim {
+    from { width: 0; height: 0; opacity: 0.8; transform: translate(-50%,-50%); }
+    to   { width: 600px; height: 600px; opacity: 0; transform: translate(-50%,-50%); }
+  }
+</style>
+</head>
+<body>
+<div id="binary-bg"></div>
+<canvas id="sphere-canvas"></canvas>
+<div id="title"><h1>电子签名签到</h1><p>ELECTRONIC SIGNATURE WALL</p></div>
+<div id="counter"><span id="sig-count">0</span>&nbsp;&nbsp;SIGNATURES</div>
+<div id="status"><div id="status-dot"></div>LIVE</div>
+<div id="announce">
+  <img id="announce-sig" src="" alt="" />
+  <div id="announce-name"></div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://gpdkcalhqbvztctoofwh.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdwZGtjYWxocWJ2enRjdG9vZndoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxMjIwMTksImV4cCI6MjA5MDY5ODAxOX0.M3B25IWhogS_8hKONXOjcjn4rFaJcBhIYWB77q2Z-Ew';
+
+// Binary bg
+const binBg = document.getElementById('binary-bg');
+let b = '';
+for (let i = 0; i < 55; i++) { for (let j = 0; j < 130; j++) b += Math.random() > 0.5 ? '1' : '0'; b += '\n'; }
+binBg.textContent = b;
+
+// Sphere
+const canvas = document.getElementById('sphere-canvas');
+const ctx = canvas.getContext('2d');
+let W, H, cx, cy, R;
+function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; cx = W/2; cy = H/2; R = Math.min(W,H)*0.33; }
+resize(); window.addEventListener('resize', resize);
+
+const signatures = [];
+let rotY = 0, rotX = 0.28;
+let isDragging = false, lastMX = 0, lastMY = 0;
+canvas.addEventListener('mousedown', e => { isDragging=true; lastMX=e.clientX; lastMY=e.clientY; });
+canvas.addEventListener('mousemove', e => { if(!isDragging)return; rotY+=(e.clientX-lastMX)*0.005; rotX+=(e.clientY-lastMY)*0.005; lastMX=e.clientX; lastMY=e.clientY; });
+canvas.addEventListener('mouseup', ()=>isDragging=false);
+canvas.addEventListener('mouseleave', ()=>isDragging=false);
+
+function project(x,y,z) {
+  const cY=Math.cos(rotY),sY=Math.sin(rotY);
+  let rx=x*cY-z*sY, rz=x*sY+z*cY, ry=y;
+  const cX=Math.cos(rotX),sX=Math.sin(rotX);
+  let ry2=ry*cX-rz*sX, rz2=ry*sX+rz*cX;
+  const fov=900, sc=fov/(fov+rz2);
+  return { sx: cx+rx*sc, sy: cy+ry2*sc, scale: sc, depth: rz2 };
+}
+
+function fibonacciPos(index, total) {
+  const golden = Math.PI*(3-Math.sqrt(5));
+  const y = 1-(index/(Math.max(total-1,1)))*2;
+  const r = Math.sqrt(1-y*y);
+  const theta = golden*index;
+  return { x: r*Math.cos(theta), y, z: r*Math.sin(theta) };
+}
+
+function addToSphere(dataURL, name) {
+  const img = new Image();
+  img.src = dataURL;
+  const total = signatures.length+1;
+  // Reposition all existing signatures on fibonacci spiral
+  signatures.forEach((s,i) => { const p=fibonacciPos(i,total); s.fx=p.x; s.fy=p.y; s.fz=p.z; });
+  const p = fibonacciPos(signatures.length, total);
+  signatures.push({ img, name, fx:p.x, fy:p.y, fz:p.z, opacity:0 });
+  document.getElementById('sig-count').textContent = signatures.length;
+}
+
+function drawWireframe() {
+  ctx.save();
+  ctx.strokeStyle = 'rgba(0,229,255,0.055)';
+  ctx.lineWidth = 0.5;
+  for (let i=0;i<=8;i++) {
+    const phi=(i/8)*Math.PI;
+    ctx.beginPath(); let first=true;
+    for (let j=0;j<=64;j++) {
+      const theta=(j/64)*Math.PI*2;
+      const x=R*Math.sin(phi)*Math.cos(theta),y=R*Math.cos(phi),z=R*Math.sin(phi)*Math.sin(theta);
+      const p=project(x,y,z);
+      if(p.depth>-R*0.45){if(first){ctx.moveTo(p.sx,p.sy);first=false;}else ctx.lineTo(p.sx,p.sy);}else first=true;
+    }
+    ctx.stroke();
+  }
+  for (let i=0;i<12;i++) {
+    const theta=(i/12)*Math.PI*2;
+    ctx.beginPath(); let first=true;
+    for (let j=0;j<=40;j++) {
+      const phi=(j/40)*Math.PI;
+      const x=R*Math.sin(phi)*Math.cos(theta),y=R*Math.cos(phi),z=R*Math.sin(phi)*Math.sin(theta);
+      const p=project(x,y,z);
+      if(p.depth>-R*0.45){if(first){ctx.moveTo(p.sx,p.sy);first=false;}else ctx.lineTo(p.sx,p.sy);}else first=true;
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function animate() {
+  ctx.clearRect(0,0,W,H);
+  if(!isDragging) rotY+=0.003;
+  // Glow
+  const g=ctx.createRadialGradient(cx,cy,0,cx,cy,R*1.2);
+  g.addColorStop(0,'rgba(26,108,255,0.05)');g.addColorStop(0.6,'rgba(0,229,255,0.02)');g.addColorStop(1,'transparent');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  drawWireframe();
+  const projected=signatures.map(s=>{const p=project(s.fx*R,s.fy*R,s.fz*R);return{s,...p};}).sort((a,b)=>a.depth-b.depth);
+  for(const item of projected){
+    const{s,sx,sy,scale,depth}=item;
+    if(!s.img.complete||s.img.naturalWidth===0)continue;
+    if(s.opacity<1)s.opacity=Math.min(1,s.opacity+0.025);
+    const depthFade=Math.max(0.07,(depth+R)/(2*R));
+    ctx.save(); ctx.globalAlpha=depthFade*s.opacity;
+    ctx.drawImage(s.img,sx-55*scale,sy-22*scale,110*scale,44*scale);
+    ctx.restore();
+  }
+  requestAnimationFrame(animate);
+}
+animate();
+
+// Announce new signature
+function showAnnouncement(dataURL, name) {
+  const ann=document.getElementById('announce');
+  document.getElementById('announce-sig').src=dataURL;
+  document.getElementById('announce-name').textContent=name?`— ${name}`:'';
+  ann.classList.remove('show'); void ann.offsetWidth; ann.classList.add('show');
+  // ripple
+  const el=document.createElement('div'); el.className='ripple';
+  el.style.left=cx+'px'; el.style.top=cy+'px';
+  document.body.appendChild(el); setTimeout(()=>el.remove(),1500);
+}
+
+// Load existing signatures from Supabase
+async function loadExisting() {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/signatures?select=*&order=created_at.asc`, {
+    headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` }
+  });
+  const data = await res.json();
+  if (Array.isArray(data)) {
+    data.forEach(row => addToSphere(row.image_data, row.name));
+  }
+}
+
+// Real-time subscription via Supabase Realtime
+function subscribeRealtime() {
+  const ws = new WebSocket(`wss://gpdkcalhqbvztctoofwh.supabase.co/realtime/v1/websocket?apikey=${SUPABASE_ANON}&vsn=1.0.0`);
+  ws.onopen = () => {
+    ws.send(JSON.stringify({ topic:'realtime:public:signatures', event:'phx_join', payload:{}, ref:'1' }));
+  };
+  ws.onmessage = e => {
+    const msg = JSON.parse(e.data);
+    if (msg.event === 'INSERT' && msg.payload?.record) {
+      const row = msg.payload.record;
+      setTimeout(() => {
+        showAnnouncement(row.image_data, row.name);
+        setTimeout(() => addToSphere(row.image_data, row.name), 2400);
+      }, 100);
+    }
+  };
+  ws.onclose = () => setTimeout(subscribeRealtime, 3000);
+}
+
+loadExisting();
+subscribeRealtime();
+</script>
+</body>
+</html>
