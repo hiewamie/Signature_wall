@@ -36,10 +36,24 @@
   #status { position: fixed; top: 16px; right: 20px; z-index: 10; font-family: 'Orbitron', monospace; font-size: 10px; letter-spacing: 0.15em; color: rgba(255,255,255,0.2); display: flex; align-items: center; gap: 6px; }
   #status-dot { width: 6px; height: 6px; border-radius: 50%; background: #2ecc71; animation: pulse 2s infinite; }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
-  #announce { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%) scale(0.8); z-index: 200; text-align: center; pointer-events: none; opacity: 0; }
+ 
+  /* Announcement overlay */
+  #announce {
+    position: fixed; top: 50%; left: 50%;
+    transform: translate(-50%, -50%) scale(0.8);
+    z-index: 200; text-align: center; pointer-events: none;
+    opacity: 0;
+  }
   #announce.show { animation: announceAnim 3.5s ease forwards; }
-  #announce-sig { max-width: 360px; max-height: 160px; filter: drop-shadow(0 0 30px rgba(0,180,255,0.9)) drop-shadow(0 0 60px rgba(0,120,255,0.5)); }
-  #announce-name { font-family: 'Orbitron', monospace; font-size: 14px; letter-spacing: 0.25em; color: #fff; margin-top: 16px; text-shadow: 0 0 20px rgba(0,229,255,1), 0 0 40px rgba(0,180,255,0.7); }
+  #announce-sig {
+    max-width: 360px; max-height: 160px;
+    filter: drop-shadow(0 0 30px rgba(0,180,255,0.9)) drop-shadow(0 0 60px rgba(0,120,255,0.5));
+  }
+  #announce-name {
+    font-family: 'Orbitron', monospace; font-size: 14px; letter-spacing: 0.25em;
+    color: #fff; margin-top: 16px;
+    text-shadow: 0 0 20px rgba(0,229,255,1), 0 0 40px rgba(0,180,255,0.7);
+  }
   @keyframes announceAnim {
     0%   { opacity: 0; transform: translate(-50%,-50%) scale(0.4); }
     12%  { opacity: 1; transform: translate(-50%,-50%) scale(1.06); }
@@ -47,7 +61,12 @@
     72%  { opacity: 1; transform: translate(-50%,-50%) scale(1); }
     100% { opacity: 0; transform: translate(-50%,-90%) scale(0.6); }
   }
-  .ripple { position: fixed; border-radius: 50%; border: 1.5px solid var(--cyan); pointer-events: none; animation: rippleAnim 1.4s ease-out forwards; z-index: 5; }
+ 
+  .ripple {
+    position: fixed; border-radius: 50%;
+    border: 1.5px solid var(--cyan); pointer-events: none;
+    animation: rippleAnim 1.4s ease-out forwards; z-index: 5;
+  }
   @keyframes rippleAnim {
     from { width: 0; height: 0; opacity: 0.8; transform: translate(-50%,-50%); }
     to   { width: 600px; height: 600px; opacity: 0; transform: translate(-50%,-50%); }
@@ -64,157 +83,285 @@
   <img id="announce-sig" src="" alt="" />
   <div id="announce-name"></div>
 </div>
-
+ 
 <script>
 const SUPABASE_URL = 'https://gpdkcalhqbvztctoofwh.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdwZGtjYWxocWJ2enRjdG9vZndoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxMjIwMTksImV4cCI6MjA5MDY5ODAxOX0.M3B25IWhogS_8hKONXOjcjn4rFaJcBhIYWB77q2Z-Ew';
-
-// Binary bg
+ 
+// Binary background
 const binBg = document.getElementById('binary-bg');
 let b = '';
 for (let i = 0; i < 55; i++) { for (let j = 0; j < 130; j++) b += Math.random() > 0.5 ? '1' : '0'; b += '\n'; }
 binBg.textContent = b;
-
-// Sphere
+ 
+// Canvas setup
 const canvas = document.getElementById('sphere-canvas');
 const ctx = canvas.getContext('2d');
 let W, H, cx, cy, R;
 function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; cx = W/2; cy = H/2; R = Math.min(W,H)*0.33; }
 resize(); window.addEventListener('resize', resize);
-
+ 
+// Signatures stored as unit-sphere coords (fx, fy, fz)
 const signatures = [];
 let rotY = 0, rotX = 0.28;
 let isDragging = false, lastMX = 0, lastMY = 0;
 canvas.addEventListener('mousedown', e => { isDragging=true; lastMX=e.clientX; lastMY=e.clientY; });
-canvas.addEventListener('mousemove', e => { if(!isDragging)return; rotY+=(e.clientX-lastMX)*0.005; rotX+=(e.clientY-lastMY)*0.005; lastMX=e.clientX; lastMY=e.clientY; });
+canvas.addEventListener('mousemove', e => { if(!isDragging)return; rotY+=(e.clientX-lastMX)*0.005; rotX+=(e.clientY-lastMY)*0.003; lastMX=e.clientX; lastMY=e.clientY; });
 canvas.addEventListener('mouseup', ()=>isDragging=false);
 canvas.addEventListener('mouseleave', ()=>isDragging=false);
-
-function project(x,y,z) {
-  const cY=Math.cos(rotY),sY=Math.sin(rotY);
-  let rx=x*cY-z*sY, rz=x*sY+z*cY, ry=y;
-  const cX=Math.cos(rotX),sX=Math.sin(rotX);
-  let ry2=ry*cX-rz*sX, rz2=ry*sX+rz*cX;
-  const fov=900, sc=fov/(fov+rz2);
-  return { sx: cx+rx*sc, sy: cy+ry2*sc, scale: sc, depth: rz2 };
+ 
+// Touch support
+canvas.addEventListener('touchstart', e => { isDragging=true; lastMX=e.touches[0].clientX; lastMY=e.touches[0].clientY; });
+canvas.addEventListener('touchmove', e => { if(!isDragging)return; e.preventDefault(); rotY+=(e.touches[0].clientX-lastMX)*0.005; rotX+=(e.touches[0].clientY-lastMY)*0.003; lastMX=e.touches[0].clientX; lastMY=e.touches[0].clientY; }, { passive:false });
+canvas.addEventListener('touchend', ()=>isDragging=false);
+ 
+// Project a 3D point (already in world space) → 2D screen coords
+// Applies rotY then rotX rotation each frame
+function project(fx, fy, fz) {
+  // Scale to sphere radius
+  let x = fx * R, y = fy * R, z = fz * R;
+ 
+  // Rotate around Y axis
+  const cY = Math.cos(rotY), sY = Math.sin(rotY);
+  let rx = x * cY - z * sY;
+  let rz = x * sY + z * cY;
+  let ry = y;
+ 
+  // Rotate around X axis
+  const cX = Math.cos(rotX), sX = Math.sin(rotX);
+  let ry2 = ry * cX - rz * sX;
+  let rz2 = ry * sX + rz * cX;
+ 
+  const fov = 900;
+  const sc = fov / (fov + rz2);
+  return { sx: cx + rx * sc, sy: cy + ry2 * sc, scale: sc, depth: rz2 };
 }
-
+ 
 function fibonacciPos(index, total) {
-  const golden = Math.PI*(3-Math.sqrt(5));
-  const y = 1-(index/(Math.max(total-1,1)))*2;
-  const r = Math.sqrt(1-y*y);
-  const theta = golden*index;
-  return { x: r*Math.cos(theta), y, z: r*Math.sin(theta) };
+  const golden = Math.PI * (3 - Math.sqrt(5));
+  const y = 1 - (index / (Math.max(total - 1, 1))) * 2;
+  const r = Math.sqrt(1 - y * y);
+  const theta = golden * index;
+  return { x: r * Math.cos(theta), y, z: r * Math.sin(theta) };
 }
-
+ 
+function repositionAll() {
+  const total = signatures.length;
+  signatures.forEach((s, i) => {
+    const p = fibonacciPos(i, total);
+    s.fx = p.x; s.fy = p.y; s.fz = p.z;
+  });
+}
+ 
 function addToSphere(dataURL, name) {
   const img = new Image();
   img.src = dataURL;
-  const total = signatures.length+1;
-  // Reposition all existing signatures on fibonacci spiral
-  signatures.forEach((s,i) => { const p=fibonacciPos(i,total); s.fx=p.x; s.fy=p.y; s.fz=p.z; });
-  const p = fibonacciPos(signatures.length, total);
-  signatures.push({ img, name, fx:p.x, fy:p.y, fz:p.z, opacity:0 });
+  signatures.push({ img, name, fx: 0, fy: 0, fz: 1, opacity: 0 });
+  repositionAll();
   document.getElementById('sig-count').textContent = signatures.length;
 }
-
+ 
 function drawWireframe() {
   ctx.save();
   ctx.strokeStyle = 'rgba(0,229,255,0.055)';
   ctx.lineWidth = 0.5;
-  for (let i=0;i<=8;i++) {
-    const phi=(i/8)*Math.PI;
-    ctx.beginPath(); let first=true;
-    for (let j=0;j<=64;j++) {
-      const theta=(j/64)*Math.PI*2;
-      const x=R*Math.sin(phi)*Math.cos(theta),y=R*Math.cos(phi),z=R*Math.sin(phi)*Math.sin(theta);
-      const p=project(x,y,z);
-      if(p.depth>-R*0.45){if(first){ctx.moveTo(p.sx,p.sy);first=false;}else ctx.lineTo(p.sx,p.sy);}else first=true;
+  // Latitude lines
+  for (let i = 0; i <= 8; i++) {
+    const phi = (i / 8) * Math.PI;
+    ctx.beginPath(); let first = true;
+    for (let j = 0; j <= 64; j++) {
+      const theta = (j / 64) * Math.PI * 2;
+      const fx = Math.sin(phi) * Math.cos(theta);
+      const fy = Math.cos(phi);
+      const fz = Math.sin(phi) * Math.sin(theta);
+      const p = project(fx, fy, fz);
+      if (p.depth > -R * 0.45) { if (first) { ctx.moveTo(p.sx, p.sy); first = false; } else ctx.lineTo(p.sx, p.sy); } else first = true;
     }
     ctx.stroke();
   }
-  for (let i=0;i<12;i++) {
-    const theta=(i/12)*Math.PI*2;
-    ctx.beginPath(); let first=true;
-    for (let j=0;j<=40;j++) {
-      const phi=(j/40)*Math.PI;
-      const x=R*Math.sin(phi)*Math.cos(theta),y=R*Math.cos(phi),z=R*Math.sin(phi)*Math.sin(theta);
-      const p=project(x,y,z);
-      if(p.depth>-R*0.45){if(first){ctx.moveTo(p.sx,p.sy);first=false;}else ctx.lineTo(p.sx,p.sy);}else first=true;
+  // Longitude lines
+  for (let i = 0; i < 12; i++) {
+    const theta = (i / 12) * Math.PI * 2;
+    ctx.beginPath(); let first = true;
+    for (let j = 0; j <= 40; j++) {
+      const phi = (j / 40) * Math.PI;
+      const fx = Math.sin(phi) * Math.cos(theta);
+      const fy = Math.cos(phi);
+      const fz = Math.sin(phi) * Math.sin(theta);
+      const p = project(fx, fy, fz);
+      if (p.depth > -R * 0.45) { if (first) { ctx.moveTo(p.sx, p.sy); first = false; } else ctx.lineTo(p.sx, p.sy); } else first = true;
     }
     ctx.stroke();
   }
   ctx.restore();
 }
-
+ 
 function animate() {
-  ctx.clearRect(0,0,W,H);
-  if(!isDragging) rotY+=0.003;
-  // Glow
-  const g=ctx.createRadialGradient(cx,cy,0,cx,cy,R*1.2);
-  g.addColorStop(0,'rgba(26,108,255,0.05)');g.addColorStop(0.6,'rgba(0,229,255,0.02)');g.addColorStop(1,'transparent');
-  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  ctx.clearRect(0, 0, W, H);
+  if (!isDragging) rotY += 0.003;
+ 
+  // Ambient glow
+  const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 1.2);
+  g.addColorStop(0, 'rgba(26,108,255,0.05)');
+  g.addColorStop(0.6, 'rgba(0,229,255,0.02)');
+  g.addColorStop(1, 'transparent');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+ 
   drawWireframe();
-  const projected=signatures.map(s=>{const p=project(s.fx*R,s.fy*R,s.fz*R);return{s,...p};}).sort((a,b)=>a.depth-b.depth);
-  for(const item of projected){
-    const{s,sx,sy,scale,depth}=item;
-    if(!s.img.complete||s.img.naturalWidth===0)continue;
-    if(s.opacity<1)s.opacity=Math.min(1,s.opacity+0.025);
-    const depthFade=Math.max(0.07,(depth+R)/(2*R));
-    ctx.save(); ctx.globalAlpha=depthFade*s.opacity;
-    ctx.drawImage(s.img,sx-55*scale,sy-22*scale,110*scale,44*scale);
+ 
+  // Project all signatures using current rotation, then sort by depth (back to front)
+  const projected = signatures.map(s => {
+    const p = project(s.fx, s.fy, s.fz);
+    return { s, ...p };
+  }).sort((a, b) => a.depth - b.depth);
+ 
+  for (const item of projected) {
+    const { s, sx, sy, scale, depth } = item;
+    if (!s.img.complete || s.img.naturalWidth === 0) continue;
+    if (s.opacity < 1) s.opacity = Math.min(1, s.opacity + 0.025);
+ 
+    // Fade signatures on the back of the sphere
+    const depthFade = Math.max(0.07, (depth + R) / (2 * R));
+    const w = 110 * scale, h = 44 * scale;
+ 
+    ctx.save();
+    ctx.globalAlpha = depthFade * s.opacity;
+    ctx.drawImage(s.img, sx - w / 2, sy - h / 2, w, h);
     ctx.restore();
   }
+ 
   requestAnimationFrame(animate);
 }
 animate();
-
-// Announce new signature
+ 
+// Show new signature announcement
 function showAnnouncement(dataURL, name) {
-  const ann=document.getElementById('announce');
-  document.getElementById('announce-sig').src=dataURL;
-  document.getElementById('announce-name').textContent=name?`— ${name}`:'';
-  ann.classList.remove('show'); void ann.offsetWidth; ann.classList.add('show');
-  // ripple
-  const el=document.createElement('div'); el.className='ripple';
-  el.style.left=cx+'px'; el.style.top=cy+'px';
-  document.body.appendChild(el); setTimeout(()=>el.remove(),1500);
+  const ann = document.getElementById('announce');
+  document.getElementById('announce-sig').src = dataURL;
+  document.getElementById('announce-name').textContent = name ? `— ${name}` : '';
+  ann.classList.remove('show');
+  void ann.offsetWidth; // force reflow to restart animation
+  ann.classList.add('show');
+ 
+  // Ripple effect from center
+  const el = document.createElement('div');
+  el.className = 'ripple';
+  el.style.left = cx + 'px';
+  el.style.top = cy + 'px';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1500);
 }
-
-// Load existing signatures from Supabase
+ 
+// Track which IDs we've already loaded to avoid duplicates from polling
+const seenIds = new Set();
+ 
+// Load existing signatures from Supabase REST
 async function loadExisting() {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/signatures?select=*&order=created_at.asc`, {
-    headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` }
-  });
-  const data = await res.json();
-  if (Array.isArray(data)) {
-    data.forEach(row => addToSphere(row.image_data, row.name));
-  }
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/signatures?select=*&order=created_at.asc`, {
+      headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` }
+    });
+    const data = await res.json();
+    if (Array.isArray(data)) {
+      data.forEach(row => {
+        seenIds.add(row.id);
+        addToSphere(row.image_data, row.name);
+      });
+    }
+  } catch(e) { console.error('loadExisting error:', e); }
 }
-
-// Real-time subscription via Supabase Realtime
+ 
+// ─── Supabase Realtime (Phoenix protocol v2) ───────────────────────────────
+// Supabase's newer realtime endpoint uses a slightly different join payload
+let heartbeatInterval = null;
+let realtimeRef = 1;
+ 
 function subscribeRealtime() {
-  const ws = new WebSocket(`wss://gpdkcalhqbvztctoofwh.supabase.co/realtime/v1/websocket?apikey=${SUPABASE_ANON}&vsn=1.0.0`);
+  const wsUrl = `wss://gpdkcalhqbvztctoofwh.supabase.co/realtime/v1/websocket?apikey=${SUPABASE_ANON}&vsn=1.0.0`;
+  const ws = new WebSocket(wsUrl);
+ 
   ws.onopen = () => {
-    ws.send(JSON.stringify({ topic:'realtime:public:signatures', event:'phx_join', payload:{}, ref:'1' }));
+    console.log('[Realtime] connected');
+ 
+    // Join the postgres_changes channel
+    ws.send(JSON.stringify({
+      topic: 'realtime:public:signatures',
+      event: 'phx_join',
+      payload: {
+        config: {
+          broadcast: { self: false },
+          presence: { key: '' },
+          postgres_changes: [{ event: 'INSERT', schema: 'public', table: 'signatures' }]
+        }
+      },
+      ref: String(realtimeRef++)
+    }));
+ 
+    // Heartbeat every 25 s to keep the connection alive
+    heartbeatInterval = setInterval(() => {
+      ws.send(JSON.stringify({ topic: 'phoenix', event: 'heartbeat', payload: {}, ref: String(realtimeRef++) }));
+    }, 25000);
   };
+ 
   ws.onmessage = e => {
-    const msg = JSON.parse(e.data);
-    if (msg.event === 'INSERT' && msg.payload?.record) {
-      const row = msg.payload.record;
-      setTimeout(() => {
-        showAnnouncement(row.image_data, row.name);
-        setTimeout(() => addToSphere(row.image_data, row.name), 2400);
-      }, 100);
+    let msg;
+    try { msg = JSON.parse(e.data); } catch { return; }
+ 
+    // Postgres change INSERT event arrives as event = "postgres_changes" or inside payload
+    if (
+      (msg.event === 'INSERT' || msg.event === 'postgres_changes') &&
+      msg.payload?.data?.record
+    ) {
+      handleNewRow(msg.payload.data.record);
+    }
+ 
+    // Some versions wrap it differently
+    if (msg.event === 'phx_reply' && msg.payload?.response?.postgres_changes) {
+      // subscription confirmed, nothing to do
     }
   };
-  ws.onclose = () => setTimeout(subscribeRealtime, 3000);
+ 
+  ws.onerror = err => console.warn('[Realtime] error', err);
+ 
+  ws.onclose = () => {
+    console.log('[Realtime] disconnected, reconnecting in 3 s…');
+    clearInterval(heartbeatInterval);
+    setTimeout(subscribeRealtime, 3000);
+  };
 }
-
-loadExisting();
-subscribeRealtime();
+ 
+function handleNewRow(row) {
+  if (!row || seenIds.has(row.id)) return;
+  seenIds.add(row.id);
+ 
+  // Show the "fly-in" announcement first, then add to sphere after 2.4 s
+  showAnnouncement(row.image_data, row.name);
+  setTimeout(() => addToSphere(row.image_data, row.name), 2400);
+}
+ 
+// ─── Polling fallback ──────────────────────────────────────────────────────
+// Polls every 5 s in case WebSocket drops or realtime event format differs
+async function pollForNew() {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/signatures?select=*&order=created_at.desc&limit=5`, {
+      headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` }
+    });
+    const data = await res.json();
+    if (Array.isArray(data)) {
+      // Process in chronological order
+      [...data].reverse().forEach(row => {
+        if (!seenIds.has(row.id)) handleNewRow(row);
+      });
+    }
+  } catch(e) { /* silent */ }
+}
+ 
+// Init
+loadExisting().then(() => {
+  subscribeRealtime();
+  // Polling fallback: checks every 5 seconds
+  setInterval(pollForNew, 5000);
+});
 </script>
 </body>
 </html>
-here got 2 problems, 1 is signature not moving with the sphere, second is the signature is not live, u need to refresh the website only can get updated signature, but i want it live, once i clicked submit from my signature page then when a new signature is added, the screen will have an animation where the new signature appears in the middle of the screen on the sphere page (main page which is the attached file), stay for a moment and fly to join the rest of the signatures in the sphere
-
