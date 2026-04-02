@@ -139,8 +139,9 @@ function project(fx, fy, fz) {
 
 function fibonacciPos(index, total) {
   const golden = Math.PI * (3 - Math.sqrt(5));
-  const y = 1 - (index / (Math.max(total - 1, 1))) * 2;
-  const r = Math.sqrt(1 - y * y);
+  // Use total+1 as denominator and offset by 0.5 so no point lands exactly at y=±1 (the poles)
+  const y = 1 - ((index + 0.5) / (Math.max(total, 1))) * 2;
+  const r = Math.sqrt(Math.max(0, 1 - y * y));
   const theta = golden * index;
   return { x: r * Math.cos(theta), y, z: r * Math.sin(theta) };
 }
