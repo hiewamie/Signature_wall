@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>签名签到 · Signature Wall</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400&family=Orbitron:wght@400;700&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #04050f;
+    --blue: #1a6cff;
+    --cyan: #00e5ff;
+    --purple: #7b2fff;
+    --glow: rgba(0, 229, 255, 0.15);
+  }
+
+  body {
+    background: var(--bg);
+    color: #fff;
+    font-family: 'Noto Sans SC', sans-serif;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  /* Background atmosphere */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 60% 50% at 70% 50%, rgba(26,108,255,0.08) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 60% at 30% 50%, rgba(123,47,255,0.06) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Binary rain background */
+  #binary-bg {
+    position: fixed;
+    inset: 0;
+    opacity: 0.07;
+    z-index: 0;
+    overflow: hidden;
+    font-family: monospace;
+    font-size: 12px;
+    color: var(--cyan);
+    line-height: 1.4;
+    letter-spacing: 2px;
+    pointer-events: none;
+  }
+
+  /* Sphere canvas */
+  #sphere-canvas {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+  }
+
+  /* Title */
+  #title {
+    position: fixed;
+    top: 32px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    text-align: center;
+    pointer-events: none;
+  }
+
+  #title h1 {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(14px, 2vw, 22px);
+    font-weight: 700;
+    letter-spacing: 0.3em;
+    color: var(--cyan);
+    text-shadow: 0 0 20px rgba(0,229,255,0.6), 0 0 40px rgba(0,229,255,0.3);
+    text-transform: uppercase;
+  }
+
+  #title p {
+    font-size: 13px;
+    color: rgba(255,255,255,0.4);
+    letter-spacing: 0.15em;
+    margin-top: 4px;
+    font-weight: 300;
+  }
+
+  /* Sign button */
+  #sign-btn {
+    position: fixed;
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    background: transparent;
+    border: 1px solid var(--cyan);
+    color: var(--cyan);
+    font-family: 'Orbitron', monospace;
+    font-size: 13px;
+    letter-spacing: 0.2em;
+    padding: 14px 40px;
+    cursor: pointer;
+    position: fixed;
+    transition: all 0.3s ease;
+    box-shadow: 0 0 20px rgba(0,229,255,0.2), inset 0 0 20px rgba(0,229,255,0.05);
+  }
+
+  #sign-btn:hover {
+    background: rgba(0,229,255,0.1);
+    box-shadow: 0 0 40px rgba(0,229,255,0.4), inset 0 0 20px rgba(0,229,255,0.1);
+  }
+
+  /* Counter */
+  #counter {
+    position: fixed;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    font-family: 'Orbitron', monospace;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: rgba(255,255,255,0.3);
+    pointer-events: none;
+  }
+
+  #counter span {
+    color: var(--cyan);
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  /* Modal overlay */
+  #modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(4,5,15,0.85);
+    backdrop-filter: blur(8px);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease;
+  }
+
+  #modal-overlay.active {
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  #modal {
+    background: rgba(10,12,30,0.95);
+    border: 1px solid rgba(0,229,255,0.3);
+    padding: 40px;
+    width: min(480px, 90vw);
+    box-shadow: 0 0 60px rgba(0,229,255,0.1), 0 0 120px rgba(26,108,255,0.1);
+    position: relative;
+  }
+
+  #modal h2 {
+    font-family: 'Orbitron', monospace;
+    font-size: 16px;
+    letter-spacing: 0.2em;
+    color: var(--cyan);
+    margin-bottom: 8px;
+  }
+
+  #modal p {
+    font-size: 12px;
+    color: rgba(255,255,255,0.35);
+    letter-spacing: 0.1em;
+    margin-bottom: 24px;
+  }
+
+  /* Canvas pad */
+  #pad-wrapper {
+    position: relative;
+    border: 1px solid rgba(0,229,255,0.25);
+    background: rgba(255,255,255,0.03);
+    margin-bottom: 20px;
+  }
+
+  #pad-wrapper::before {
+    content: '在此签名 · SIGN HERE';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%,-50%);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: rgba(255,255,255,0.08);
+    pointer-events: none;
+    font-family: 'Orbitron', monospace;
+  }
+
+  #signature-pad {
+    display: block;
+    width: 100%;
+    height: 180px;
+    cursor: crosshair;
+    touch-action: none;
+  }
+
+  /* Name input */
+  #name-input {
+    width: 100%;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(0,229,255,0.2);
+    color: #fff;
+    font-family: 'Noto Sans SC', sans-serif;
+    font-size: 14px;
+    padding: 12px 16px;
+    outline: none;
+    margin-bottom: 20px;
+    transition: border-color 0.3s;
+    letter-spacing: 0.05em;
+  }
+
+  #name-input:focus {
+    border-color: var(--cyan);
+    box-shadow: 0 0 20px rgba(0,229,255,0.1);
+  }
+
+  #name-input::placeholder {
+    color: rgba(255,255,255,0.2);
+  }
+
+  /* Buttons row */
+  .btn-row {
+    display: flex;
+    gap: 12px;
+  }
+
+  .btn {
+    flex: 1;
+    padding: 12px;
+    font-family: 'Orbitron', monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    cursor: pointer;
+    border: 1px solid;
+    transition: all 0.3s;
+    text-transform: uppercase;
+  }
+
+  .btn-clear {
+    background: transparent;
+    border-color: rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.4);
+  }
+
+  .btn-clear:hover {
+    border-color: rgba(255,255,255,0.3);
+    color: rgba(255,255,255,0.7);
+  }
+
+  .btn-submit {
+    background: rgba(0,229,255,0.1);
+    border-color: var(--cyan);
+    color: var(--cyan);
+    box-shadow: 0 0 20px rgba(0,229,255,0.15);
+  }
+
+  .btn-submit:hover {
+    background: rgba(0,229,255,0.2);
+    box-shadow: 0 0 30px rgba(0,229,255,0.3);
+  }
+
+  .btn-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: transparent;
+    border: none;
+    color: rgba(255,255,255,0.3);
+    font-size: 20px;
+    cursor: pointer;
+    line-height: 1;
+    padding: 4px 8px;
+  }
+
+  .btn-close:hover { color: rgba(255,255,255,0.7); }
+
+  /* New signature announcement */
+  #announce {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.8);
+    z-index: 200;
+    text-align: center;
+    pointer-events: none;
+    opacity: 0;
+    transition: none;
+  }
+
+  #announce.show {
+    animation: announceAnim 3s ease forwards;
+  }
+
+  #announce-sig {
+    max-width: 300px;
+    max-height: 120px;
+    filter: drop-shadow(0 0 20px var(--cyan)) drop-shadow(0 0 40px rgba(0,229,255,0.5));
+  }
+
+  #announce-name {
+    font-family: 'Orbitron', monospace;
+    font-size: 13px;
+    letter-spacing: 0.2em;
+    color: var(--cyan);
+    margin-top: 12px;
+    text-shadow: 0 0 20px rgba(0,229,255,0.8);
+  }
+
+  @keyframes announceAnim {
+    0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
+    15%  { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
+    30%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    70%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -80%) scale(0.7); }
+  }
+
+  /* Ripple effect */
+  .ripple {
+    position: fixed;
+    border-radius: 50%;
+    border: 2px solid var(--cyan);
+    pointer-events: none;
+    animation: rippleAnim 1s ease-out forwards;
+    z-index: 5;
+  }
+
+  @keyframes rippleAnim {
+    from { width: 0; height: 0; opacity: 0.8; transform: translate(-50%,-50%); }
+    to   { width: 400px; height: 400px; opacity: 0; transform: translate(-50%,-50%); }
+  }
+</style>
+</head>
+<body>
+
+<div id="binary-bg"></div>
+<canvas id="sphere-canvas"></canvas>
+
+<div id="title">
+  <h1>电子签名签到</h1>
+  <p>ELECTRONIC SIGNATURE WALL</p>
+</div>
+
+<div id="counter"><span id="sig-count">0</span> &nbsp;SIGNATURES</div>
+
+<button id="sign-btn" onclick="openModal()">签名 · SIGN</button>
+
+<!-- Modal -->
+<div id="modal-overlay">
+  <div id="modal">
+    <button class="btn-close" onclick="closeModal()">×</button>
+    <h2>签名登记</h2>
+    <p>DRAW YOUR SIGNATURE BELOW</p>
+    <div id="pad-wrapper">
+      <canvas id="signature-pad"></canvas>
+    </div>
+    <input id="name-input" type="text" placeholder="您的姓名 · Your name (optional)" maxlength="20" />
+    <div class="btn-row">
+      <button class="btn btn-clear" onclick="clearPad()">清除 · CLEAR</button>
+      <button class="btn btn-submit" onclick="submitSignature()">提交 · SUBMIT</button>
+    </div>
+  </div>
+</div>
+
+<!-- Announcement overlay -->
+<div id="announce">
+  <img id="announce-sig" src="" alt="" />
+  <div id="announce-name"></div>
+</div>
+
+<script>
+// ─── Binary background ───────────────────────────────────────────────
+const binBg = document.getElementById('binary-bg');
+let binHTML = '';
+for (let i = 0; i < 60; i++) {
+  let row = '';
+  for (let j = 0; j < 120; j++) row += Math.random() > 0.5 ? '1' : '0';
+  binHTML += row + '\n';
+}
+binBg.textContent = binHTML;
+
+// ─── Sphere renderer ─────────────────────────────────────────────────
+const canvas = document.getElementById('sphere-canvas');
+const ctx = canvas.getContext('2d');
+
+let W, H, cx, cy, R;
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  cx = W / 2; cy = H / 2;
+  R = Math.min(W, H) * 0.32;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// Signatures stored as { dataURL, name, theta, phi, x3d, y3d, z3d, opacity }
+const signatures = [];
+let rotY = 0, rotX = 0.3;
+let autoRotY = 0.003;
+let isDragging = false, lastMX = 0, lastMY = 0;
+
+function spherePos(theta, phi) {
+  const x = R * Math.sin(phi) * Math.cos(theta);
+  const y = R * Math.cos(phi);
+  const z = R * Math.sin(phi) * Math.sin(theta);
+  return { x, y, z };
+}
+
+function project(x, y, z) {
+  // Rotate around Y
+  const cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+  let rx = x * cosY - z * sinY;
+  let rz = x * sinY + z * cosY;
+  let ry = y;
+  // Rotate around X
+  const cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+  let ry2 = ry * cosX - rz * sinX;
+  let rz2 = ry * sinX + rz * cosX;
+  const fov = 800;
+  const scale = fov / (fov + rz2);
+  return { sx: cx + rx * scale, sy: cy + ry2 * scale, scale, depth: rz2 };
+}
+
+// Preload image objects
+const sigImages = [];
+
+function addSignature(dataURL, name) {
+  const theta = Math.random() * Math.PI * 2;
+  const phi = Math.acos(2 * Math.random() - 1);
+  const img = new Image();
+  img.src = dataURL;
+  const entry = { dataURL, name, theta, phi, img, opacity: 0 };
+  signatures.push(entry);
+  sigImages.push(img);
+  updateCounter();
+  return entry;
+}
+
+function updateCounter() {
+  document.getElementById('sig-count').textContent = signatures.length;
+}
+
+function drawSphere() {
+  ctx.clearRect(0, 0, W, H);
+
+  // Draw faint sphere wireframe
+  ctx.save();
+  ctx.strokeStyle = 'rgba(0,229,255,0.06)';
+  ctx.lineWidth = 0.5;
+
+  // Latitude lines
+  for (let i = 0; i <= 8; i++) {
+    const phi = (i / 8) * Math.PI;
+    ctx.beginPath();
+    let first = true;
+    for (let j = 0; j <= 60; j++) {
+      const theta = (j / 60) * Math.PI * 2;
+      const x = R * Math.sin(phi) * Math.cos(theta);
+      const y = R * Math.cos(phi);
+      const z = R * Math.sin(phi) * Math.sin(theta);
+      const p = project(x, y, z);
+      if (p.depth > -R * 0.5) {
+        if (first) { ctx.moveTo(p.sx, p.sy); first = false; }
+        else ctx.lineTo(p.sx, p.sy);
+      } else first = true;
+    }
+    ctx.stroke();
+  }
+
+  // Longitude lines
+  for (let i = 0; i < 12; i++) {
+    const theta = (i / 12) * Math.PI * 2;
+    ctx.beginPath();
+    let first = true;
+    for (let j = 0; j <= 40; j++) {
+      const phi = (j / 40) * Math.PI;
+      const x = R * Math.sin(phi) * Math.cos(theta);
+      const y = R * Math.cos(phi);
+      const z = R * Math.sin(phi) * Math.sin(theta);
+      const p = project(x, y, z);
+      if (p.depth > -R * 0.5) {
+        if (first) { ctx.moveTo(p.sx, p.sy); first = false; }
+        else ctx.lineTo(p.sx, p.sy);
+      } else first = true;
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Sort signatures by depth (back to front)
+  const projected = signatures.map(sig => {
+    const pos = spherePos(sig.theta, sig.phi);
+    const p = project(pos.x, pos.y, pos.z);
+    return { sig, ...p };
+  }).sort((a, b) => a.depth - b.depth);
+
+  // Draw signatures
+  for (const item of projected) {
+    const { sig, sx, sy, scale, depth } = item;
+    if (!sig.img.complete || sig.img.naturalWidth === 0) continue;
+
+    // Fade based on depth (back of sphere is more transparent)
+    const depthFade = Math.max(0.08, (depth + R) / (2 * R));
+    const alpha = depthFade * Math.min(1, sig.opacity);
+
+    const w = 90 * scale;
+    const h = 36 * scale;
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(sig.img, sx - w / 2, sy - h / 2, w, h);
+    ctx.restore();
+
+    // Fade in
+    if (sig.opacity < 1) sig.opacity += 0.02;
+  }
+}
+
+// Sphere glow center
+function drawGlow() {
+  const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 1.1);
+  grad.addColorStop(0, 'rgba(26,108,255,0.04)');
+  grad.addColorStop(0.6, 'rgba(0,229,255,0.02)');
+  grad.addColorStop(1, 'transparent');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+}
+
+function animate() {
+  rotY += autoRotY;
+  drawGlow();
+  drawSphere();
+  requestAnimationFrame(animate);
+}
+animate();
+
+// Drag to rotate
+canvas.addEventListener('mousedown', e => { isDragging = true; lastMX = e.clientX; lastMY = e.clientY; });
+canvas.addEventListener('mousemove', e => {
+  if (!isDragging) return;
+  rotY += (e.clientX - lastMX) * 0.005;
+  rotX += (e.clientY - lastMY) * 0.005;
+  lastMX = e.clientX; lastMY = e.clientY;
+});
+canvas.addEventListener('mouseup', () => isDragging = false);
+canvas.addEventListener('mouseleave', () => isDragging = false);
+
+canvas.addEventListener('touchstart', e => { isDragging = true; lastMX = e.touches[0].clientX; lastMY = e.touches[0].clientY; }, { passive: true });
+canvas.addEventListener('touchmove', e => {
+  if (!isDragging) return;
+  rotY += (e.touches[0].clientX - lastMX) * 0.005;
+  rotX += (e.touches[0].clientY - lastMY) * 0.005;
+  lastMX = e.touches[0].clientX; lastMY = e.touches[0].clientY;
+}, { passive: true });
+canvas.addEventListener('touchend', () => isDragging = false);
+
+// ─── Signature pad ───────────────────────────────────────────────────
+const pad = document.getElementById('signature-pad');
+const padCtx = pad.getContext('2d');
+let drawing = false;
+let lastX = 0, lastY = 0;
+
+function initPad() {
+  const rect = pad.parentElement.getBoundingClientRect();
+  pad.width = rect.width - 2;
+  pad.height = 180;
+  padCtx.strokeStyle = '#00e5ff';
+  padCtx.lineWidth = 2.5;
+  padCtx.lineCap = 'round';
+  padCtx.lineJoin = 'round';
+}
+
+function getPos(e) {
+  const rect = pad.getBoundingClientRect();
+  if (e.touches) return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
+  return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+}
+
+pad.addEventListener('mousedown', e => { drawing = true; const p = getPos(e); lastX = p.x; lastY = p.y; });
+pad.addEventListener('mousemove', e => {
+  if (!drawing) return;
+  const p = getPos(e);
+  padCtx.beginPath();
+  padCtx.moveTo(lastX, lastY);
+  padCtx.lineTo(p.x, p.y);
+  padCtx.stroke();
+  lastX = p.x; lastY = p.y;
+});
+pad.addEventListener('mouseup', () => drawing = false);
+pad.addEventListener('mouseleave', () => drawing = false);
+
+pad.addEventListener('touchstart', e => { e.preventDefault(); drawing = true; const p = getPos(e); lastX = p.x; lastY = p.y; }, { passive: false });
+pad.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (!drawing) return;
+  const p = getPos(e);
+  padCtx.beginPath();
+  padCtx.moveTo(lastX, lastY);
+  padCtx.lineTo(p.x, p.y);
+  padCtx.stroke();
+  lastX = p.x; lastY = p.y;
+}, { passive: false });
+pad.addEventListener('touchend', () => drawing = false);
+
+function clearPad() {
+  padCtx.clearRect(0, 0, pad.width, pad.height);
+}
+
+// ─── Modal ───────────────────────────────────────────────────────────
+function openModal() {
+  document.getElementById('modal-overlay').classList.add('active');
+  initPad();
+  clearPad();
+  document.getElementById('name-input').value = '';
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('active');
+}
+
+document.getElementById('modal-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal-overlay')) closeModal();
+});
+
+// ─── Submit ──────────────────────────────────────────────────────────
+function submitSignature() {
+  // Check if pad has content
+  const data = padCtx.getImageData(0, 0, pad.width, pad.height).data;
+  const hasContent = data.some((v, i) => i % 4 === 3 && v > 0);
+  if (!hasContent) {
+    pad.parentElement.style.borderColor = 'rgba(255,80,80,0.6)';
+    setTimeout(() => pad.parentElement.style.borderColor = 'rgba(0,229,255,0.25)', 1000);
+    return;
+  }
+
+  const name = document.getElementById('name-input').value.trim();
+  const dataURL = pad.toDataURL('image/png');
+  closeModal();
+
+  // Show announcement
+  showAnnouncement(dataURL, name);
+
+  // Add to sphere after announcement starts flying away
+  setTimeout(() => {
+    addSignature(dataURL, name);
+  }, 2200);
+
+  // Ripple effect
+  spawnRipple(W / 2, H / 2);
+}
+
+function showAnnouncement(dataURL, name) {
+  const ann = document.getElementById('announce');
+  const annSig = document.getElementById('announce-sig');
+  const annName = document.getElementById('announce-name');
+
+  annSig.src = dataURL;
+  annName.textContent = name ? `— ${name}` : '';
+  ann.classList.remove('show');
+  void ann.offsetWidth; // reflow
+  ann.classList.add('show');
+}
+
+function spawnRipple(x, y) {
+  const el = document.createElement('div');
+  el.className = 'ripple';
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1100);
+}
+
+// ─── Sample signatures to populate sphere ────────────────────────────
+function makeSampleSig(text, color) {
+  const c = document.createElement('canvas');
+  c.width = 180; c.height = 72;
+  const cx = c.getContext('2d');
+  cx.strokeStyle = color;
+  cx.lineWidth = 2;
+  cx.lineCap = 'round';
+
+  // Draw simple brushstroke-like text
+  cx.font = `italic ${20 + Math.random() * 10}px cursive`;
+  cx.fillStyle = color;
+  cx.globalAlpha = 0.9;
+  cx.fillText(text, 10 + Math.random() * 20, 40 + Math.random() * 10);
+  return c.toDataURL();
+}
+
+const sampleNames = ['张伟','李娜','王芳','刘洋','陈静','Yang Ming','Siti','Priya','Ahmad','Sarah','Kevin','阿明','小红','文华','志远','美玲'];
+const colors = ['#00e5ff','#7b2fff','#1a6cff','#ffffff','#00ffb3','#ff6b6b'];
+
+sampleNames.forEach((name, i) => {
+  setTimeout(() => {
+    addSignature(makeSampleSig(name, colors[i % colors.length]), name);
+  }, i * 120);
+});
+</script>
+</body>
+</html>
