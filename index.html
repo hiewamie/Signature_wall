@@ -115,23 +115,16 @@ canvas.addEventListener('touchstart', e => { isDragging=true; lastMX=e.touches[0
 canvas.addEventListener('touchmove', e => { if(!isDragging)return; e.preventDefault(); rotY+=(e.touches[0].clientX-lastMX)*0.005; rotX+=(e.touches[0].clientY-lastMY)*0.003; lastMX=e.touches[0].clientX; lastMY=e.touches[0].clientY; }, { passive:false });
 canvas.addEventListener('touchend', ()=>isDragging=false);
 
-// Project a 3D point (already in world space) → 2D screen coords
-// Applies rotY then rotX rotation each frame
+// Project a 3D point → 2D screen coords
 function project(fx, fy, fz) {
-  // Scale to sphere radius
   let x = fx * R, y = fy * R, z = fz * R;
-
-  // Rotate around Y axis
   const cY = Math.cos(rotY), sY = Math.sin(rotY);
   let rx = x * cY - z * sY;
   let rz = x * sY + z * cY;
   let ry = y;
-
-  // Rotate around X axis
   const cX = Math.cos(rotX), sX = Math.sin(rotX);
   let ry2 = ry * cX - rz * sX;
   let rz2 = ry * sX + rz * cX;
-
   const fov = 900;
   const sc = fov / (fov + rz2);
   return { sx: cx + rx * sc, sy: cy + ry2 * sc, scale: sc, depth: rz2 };
@@ -139,7 +132,6 @@ function project(fx, fy, fz) {
 
 function fibonacciPos(index, total) {
   const golden = Math.PI * (3 - Math.sqrt(5));
-  // Use total+1 as denominator and offset by 0.5 so no point lands exactly at y=±1 (the poles)
   const y = 1 - ((index + 0.5) / (Math.max(total, 1))) * 2;
   const r = Math.sqrt(Math.max(0, 1 - y * y));
   const theta = golden * index;
@@ -164,8 +156,9 @@ function addToSphere(dataURL, name) {
 
 function drawWireframe() {
   ctx.save();
-  ctx.strokeStyle = 'rgba(0,229,255,0.055)';
-  ctx.lineWidth = 0.5;
+  // Thicker, more visible lines
+  ctx.strokeStyle = 'rgba(0,229,255,0.18)';
+  ctx.lineWidth = 1.2;
   // Latitude lines
   for (let i = 0; i <= 8; i++) {
     const phi = (i / 8) * Math.PI;
@@ -210,7 +203,7 @@ function animate() {
 
   drawWireframe();
 
-  // Project all signatures using current rotation, then sort by depth (back to front)
+  // Project all signatures, sort back-to-front
   const projected = signatures.map(s => {
     const p = project(s.fx, s.fy, s.fz);
     return { s, ...p };
@@ -221,13 +214,35 @@ function animate() {
     if (!s.img.complete || s.img.naturalWidth === 0) continue;
     if (s.opacity < 1) s.opacity = Math.min(1, s.opacity + 0.025);
 
-    // Fade signatures on the back of the sphere
-    const depthFade = Math.max(0.07, (depth + R) / (2 * R));
-    const w = 110 * scale, h = 44 * scale;
+    // Smoother depth fade: front = 1.0, back = 0.15 (wider visible range)
+    const depthFade = Math.max(0.15, (depth + R) / (2 * R));
+    const combinedAlpha = depthFade * s.opacity;
+
+    // ── Larger signature: 180px wide base ──
+    const SIG_W = 180;
+    const SIG_H = 70;
+    const w = SIG_W * scale;
+    const h = SIG_H * scale;
+    const pad = 8 * scale;
+    const r = 6 * scale; // pill corner radius
 
     ctx.save();
-    ctx.globalAlpha = depthFade * s.opacity;
-    ctx.drawImage(s.img, sx - w / 2, sy - h / 2, w, h);
+    ctx.globalAlpha = combinedAlpha;
+
+    // Dark pill background so sig is readable against the wireframe
+    ctx.beginPath();
+    ctx.roundRect(sx - w/2 - pad, sy - h/2 - pad, w + pad*2, h + pad*2, r);
+    ctx.fillStyle = 'rgba(4, 8, 24, 0.62)';
+    ctx.fill();
+
+    // Subtle cyan border on the pill
+    ctx.strokeStyle = `rgba(0,229,255,${0.35 * depthFade})`;
+    ctx.lineWidth = 0.8 * scale;
+    ctx.stroke();
+
+    // Draw the signature image itself
+    ctx.drawImage(s.img, sx - w/2, sy - h/2, w, h);
+
     ctx.restore();
   }
 
@@ -241,10 +256,9 @@ function showAnnouncement(dataURL, name) {
   document.getElementById('announce-sig').src = dataURL;
   document.getElementById('announce-name').textContent = name ? `— ${name}` : '';
   ann.classList.remove('show');
-  void ann.offsetWidth; // force reflow to restart animation
+  void ann.offsetWidth;
   ann.classList.add('show');
 
-  // Ripple effect from center
   const el = document.createElement('div');
   el.className = 'ripple';
   el.style.left = cx + 'px';
@@ -253,10 +267,8 @@ function showAnnouncement(dataURL, name) {
   setTimeout(() => el.remove(), 1500);
 }
 
-// Track which IDs we've already loaded to avoid duplicates from polling
 const seenIds = new Set();
 
-// Load existing signatures from Supabase REST
 async function loadExisting() {
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/signatures?select=*&order=created_at.asc`, {
@@ -272,8 +284,6 @@ async function loadExisting() {
   } catch(e) { console.error('loadExisting error:', e); }
 }
 
-// ─── Supabase Realtime (Phoenix protocol v2) ───────────────────────────────
-// Supabase's newer realtime endpoint uses a slightly different join payload
 let heartbeatInterval = null;
 let realtimeRef = 1;
 
@@ -282,9 +292,6 @@ function subscribeRealtime() {
   const ws = new WebSocket(wsUrl);
 
   ws.onopen = () => {
-    console.log('[Realtime] connected');
-
-    // Join the postgres_changes channel
     ws.send(JSON.stringify({
       topic: 'realtime:public:signatures',
       event: 'phx_join',
@@ -297,8 +304,6 @@ function subscribeRealtime() {
       },
       ref: String(realtimeRef++)
     }));
-
-    // Heartbeat every 25 s to keep the connection alive
     heartbeatInterval = setInterval(() => {
       ws.send(JSON.stringify({ topic: 'phoenix', event: 'heartbeat', payload: {}, ref: String(realtimeRef++) }));
     }, 25000);
@@ -307,25 +312,16 @@ function subscribeRealtime() {
   ws.onmessage = e => {
     let msg;
     try { msg = JSON.parse(e.data); } catch { return; }
-
-    // Postgres change INSERT event arrives as event = "postgres_changes" or inside payload
     if (
       (msg.event === 'INSERT' || msg.event === 'postgres_changes') &&
       msg.payload?.data?.record
     ) {
       handleNewRow(msg.payload.data.record);
     }
-
-    // Some versions wrap it differently
-    if (msg.event === 'phx_reply' && msg.payload?.response?.postgres_changes) {
-      // subscription confirmed, nothing to do
-    }
   };
 
   ws.onerror = err => console.warn('[Realtime] error', err);
-
   ws.onclose = () => {
-    console.log('[Realtime] disconnected, reconnecting in 3 s…');
     clearInterval(heartbeatInterval);
     setTimeout(subscribeRealtime, 3000);
   };
@@ -334,14 +330,10 @@ function subscribeRealtime() {
 function handleNewRow(row) {
   if (!row || seenIds.has(row.id)) return;
   seenIds.add(row.id);
-
-  // Show the "fly-in" announcement first, then add to sphere after 2.4 s
   showAnnouncement(row.image_data, row.name);
   setTimeout(() => addToSphere(row.image_data, row.name), 2400);
 }
 
-// ─── Polling fallback ──────────────────────────────────────────────────────
-// Polls every 5 s in case WebSocket drops or realtime event format differs
 async function pollForNew() {
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/signatures?select=*&order=created_at.desc&limit=5`, {
@@ -349,7 +341,6 @@ async function pollForNew() {
     });
     const data = await res.json();
     if (Array.isArray(data)) {
-      // Process in chronological order
       [...data].reverse().forEach(row => {
         if (!seenIds.has(row.id)) handleNewRow(row);
       });
@@ -357,10 +348,8 @@ async function pollForNew() {
   } catch(e) { /* silent */ }
 }
 
-// Init
 loadExisting().then(() => {
   subscribeRealtime();
-  // Polling fallback: checks every 5 seconds
   setInterval(pollForNew, 5000);
 });
 </script>
