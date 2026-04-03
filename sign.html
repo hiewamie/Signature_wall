@@ -60,7 +60,12 @@
     <div id="pad-wrapper">
       <div id="pad-hint">SIGN HERE</div>
       <canvas id="signature-pad"></canvas>
-    
+    </div>
+
+<div class="btn-row">
+  <button class="btn btn-clear" onclick="clearPad()">CLEAR</button>
+  <button class="btn btn-submit" id="submit-btn" onclick="submitSig()">SUBMIT</button>
+</div>
   </div>
   <div id="success">
     <h2 style="font-family:'Orbitron';color:var(--cyan)">PERFECT</h2>
