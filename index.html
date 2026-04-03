@@ -15,7 +15,6 @@
   #sphere-canvas { position: fixed; inset: 0; z-index: 1; }
   #flame-canvas { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
 
-  /* Deep space background */
   body::before {
     content: ''; position: fixed; inset: 0; pointer-events: none; z-index: -1;
     background:
@@ -36,7 +35,6 @@
   @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.3} }
   
   #clear-btn { position: fixed; top: 0; right: 0; width: 56px; height: 56px; z-index: 100; cursor: default; background: transparent; border: none; }
-  #new-sig-overlay { position: fixed; inset: 0; z-index: 20; pointer-events: none; display: flex; align-items: center; justify-content: center; }
   .ripple { position: fixed; border-radius: 50%; border: 1.5px solid var(--cyan); pointer-events: none; animation: rippleAnim 1.4s ease-out forwards; z-index: 5; }
   @keyframes rippleAnim { from{width:0;height:0;opacity:0.8;transform:translate(-50%,-50%);}to{width:600px;height:600px;opacity:0;transform:translate(-50%,-50%);} }
 </style>
@@ -75,9 +73,9 @@ window.addEventListener('resize', resize);
 
 // --- Binary Layer ---
 function drawBinary() {
-  bctx.fillStyle = 'rgba(2, 8, 24, 0.1)'; // Matches your --bg
+  bctx.fillStyle = 'rgba(2, 8, 24, 0.1)';
   bctx.fillRect(0, 0, W, H);
-  bctx.fillStyle = '#00e5ff'; // Cyan binary
+  bctx.fillStyle = '#00e5ff';
   bctx.font = bFontSize + 'px monospace';
   for (let i = 0; i < bDrops.length; i++) {
     const text = Math.random() > 0.5 ? "1" : "0";
@@ -94,7 +92,6 @@ function buildGlowCanvas(img) {
   const rctx = raw.getContext('2d'); rctx.drawImage(img, 0, 0, GW, GH);
   const idata = rctx.getImageData(0, 0, GW, GH), d = idata.data;
   
-  // Calculate if image is dark on light or vice versa
   let cs = 0;
   [[0,0],[GW-1,0],[0,GH-1],[GW-1,GH-1]].forEach(([x,y]) => {
     const i = (y * GW + x) * 4; cs += (d[i] + d[i+1] + d[i+2]) / 3;
@@ -107,9 +104,7 @@ function buildGlowCanvas(img) {
     let ink = darkOnLight ? 1 - (r+g+bl)/(3*255) : a/255;
     if (ink < 0.06) { d[i+3] = 0; continue; }
     const t = Math.min(1, ink * 1.5);
-    d[i] = Math.round(180 + 75 * t);
-    d[i+1] = Math.round(220 + 35 * t);
-    d[i+2] = 255;
+    d[i] = Math.round(180 + 75 * t); d[i+1] = Math.round(220 + 35 * t); d[i+2] = 255;
     d[i+3] = Math.round(255 * Math.min(1, ink * 1.8));
   }
   rctx.putImageData(idata, 0, 0);
@@ -117,18 +112,15 @@ function buildGlowCanvas(img) {
   const gc = document.createElement('canvas'); gc.width = GW; gc.height = GH;
   const gctx = gc.getContext('2d');
   [[9, 0.45],[4, 0.65],[1.5, 0.85],[0, 1]].forEach(([blur, alpha]) => {
-    gctx.save();
-    gctx.filter = blur ? `blur(${blur}px)` : 'none';
-    gctx.globalAlpha = alpha;
-    gctx.drawImage(raw, 0, 0);
-    gctx.restore();
+    gctx.save(); gctx.filter = blur ? `blur(${blur}px)` : 'none';
+    gctx.globalAlpha = alpha; gctx.drawImage(raw, 0, 0); gctx.restore();
   });
   return gc;
 }
 
 const signatures = [];
 const seenIds = new Set();
-let rotY = 0, rotX = 0.28, isDragging = false, lastMX = 0, lastMY = 0;
+let rotY = 0, rotX = 0.28, isDragging = false, lastMX = 0;
 
 const flyQueue = [];
 let flyIn = null;
@@ -138,6 +130,7 @@ function enqueue(glowCanvas, name) {
   flyQueue.push({ glowCanvas, name });
   if (!flyIn) dequeue();
 }
+
 function dequeue() {
   if (flyQueue.length === 0) { flyIn = null; return; }
   const next = flyQueue.shift();
@@ -183,7 +176,7 @@ function animate(now) {
   
   if (!isDragging) rotY += 0.003;
 
-  // 1. Draw Halo/Flame
+  // 1. Draw Globe Glow
   const ring = fctx.createRadialGradient(cx, cy, R * 0.8, cx, cy, R * 1.2);
   ring.addColorStop(0, 'rgba(0,180,255,0)');
   ring.addColorStop(0.7, 'rgba(100,230,255,0.3)');
@@ -192,15 +185,12 @@ function animate(now) {
 
   // 2. Draw Sphere Signatures
   const projected = signatures.map(s => { const p = project(s.fx, s.fy, s.fz); return { s, ...p }; }).sort((a, b) => a.depth - b.depth);
-  
   for (const item of projected) {
     const { s, sx, sy, scale, depth } = item;
     if (flyIn && flyIn.phase === 'shrink' && s === signatures[signatures.length - 1]) continue;
     if (s.opacity < 1) s.opacity = Math.min(1, s.opacity + 0.02);
-    
     const depthNorm = (depth + R) / (2 * R);
     const sw = (R * 0.58) * Math.min(scale, 1.15), sh = sw * (120/320);
-    
     ctx.save();
     ctx.globalAlpha = (0.1 + 0.9 * depthNorm) * s.opacity;
     ctx.globalCompositeOperation = 'screen';
@@ -208,7 +198,7 @@ function animate(now) {
     ctx.restore();
   }
 
-  // 3. Draw Fly-In Animation
+  // 3. Draw Fly-In Animation (THE EXTRACTED PART)
   if (flyIn) {
     const elapsed = now - flyIn.t0;
     const BIG_W = Math.min(W * 0.48, 500), BIG_H = BIG_W * (120/320);
@@ -220,6 +210,7 @@ function animate(now) {
       alpha = ease; scl = 0.5 + 0.5 * ease;
       if (elapsed >= FLY_IN_MS) { flyIn.phase = 'hold'; flyIn.t0 = now; }
     } else if (flyIn.phase === 'hold') {
+      scl = 1 + 0.02 * Math.sin(elapsed * 0.005);
       if (elapsed >= HOLD_MS) { commitToSphere(flyIn.glowCanvas, flyIn.name); flyIn.phase = 'shrink'; flyIn.t0 = now; }
     } else if (flyIn.phase === 'shrink') {
       const p = Math.min(1, elapsed / SHRINK_MS);
@@ -239,7 +230,6 @@ function animate(now) {
     ctx.drawImage(flyIn.glowCanvas, sx - (BIG_W*scl)/2, sy - (BIG_H*scl)/2, BIG_W*scl, BIG_H*scl);
     ctx.restore();
   }
-
   requestAnimationFrame(animate);
 }
 
@@ -249,7 +239,6 @@ function spawnRipple() {
   document.body.appendChild(el); setTimeout(() => el.remove(), 1500);
 }
 
-// --- Connectivity ---
 async function handleNewRow(row, isInitial = false) {
   if (!row || seenIds.has(row.id)) return;
   seenIds.add(row.id);
@@ -261,9 +250,7 @@ async function handleNewRow(row, isInitial = false) {
       signatures.push({ glowCanvas: gc, name: row.name, fx: 0, fy: 0, fz: 1, opacity: 1 });
       repositionAll();
       document.getElementById('sig-count').textContent = signatures.length;
-    } else {
-      enqueue(gc, row.name);
-    }
+    } else { enqueue(gc, row.name); }
   };
   img.src = row.image_data;
 }
@@ -278,10 +265,8 @@ async function init() {
   const ws = new WebSocket(`wss://gpdkcalhqbvztctoofwh.supabase.co/realtime/v1/websocket?apikey=${SUPABASE_ANON}&vsn=1.0.0`);
   ws.onopen = () => {
     ws.send(JSON.stringify({ 
-      topic: 'realtime:public:signatures', 
-      event: 'phx_join', 
-      payload: { config: { postgres_changes: [{ event: 'INSERT', schema: 'public', table: 'signatures' }] } }, 
-      ref: '1' 
+      topic: 'realtime:public:signatures', event: 'phx_join', 
+      payload: { config: { postgres_changes: [{ event: 'INSERT', schema: 'public', table: 'signatures' }] } }, ref: '1' 
     }));
     setInterval(() => ws.send(JSON.stringify({ topic: 'phoenix', event: 'heartbeat', payload: {}, ref: 'hb' })), 25000);
   };
@@ -293,7 +278,6 @@ async function init() {
   };
 }
 
-// Mouse interaction
 canvas.addEventListener('mousedown', e => { isDragging = true; lastMX = e.clientX; });
 window.addEventListener('mousemove', e => { if (isDragging) { rotY += (e.clientX - lastMX) * 0.005; lastMX = e.clientX; } });
 window.addEventListener('mouseup', () => isDragging = false);
