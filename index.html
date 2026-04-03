@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE html> 
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -7,20 +7,35 @@
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400&family=Orbitron:wght@400;700&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  :root { --bg: #04050f; --cyan: #00e5ff; }
+  :root { --bg: #020818; --cyan: #00e5ff; --blue: #1a6cff; }
   body { background: var(--bg); color: #fff; font-family: 'Noto Sans SC', sans-serif; overflow: hidden; height: 100vh; width: 100vw; }
+
+  /* Deep space background */
   body::before {
     content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
-    background: radial-gradient(ellipse 60% 50% at 70% 50%, rgba(26,108,255,0.09) 0%, transparent 70%),
-                radial-gradient(ellipse 40% 60% at 30% 50%, rgba(123,47,255,0.07) 0%, transparent 70%);
+    background:
+      radial-gradient(ellipse 80% 60% at 50% 50%, rgba(10,30,100,0.55) 0%, transparent 70%),
+      radial-gradient(ellipse 100% 100% at 50% 50%, rgba(2,8,24,1) 0%, transparent 100%);
   }
-  #binary-bg {
-    position: fixed; inset: 0; opacity: 0.06; z-index: 0; overflow: hidden;
-    font-family: monospace; font-size: 12px; color: var(--cyan); line-height: 1.4;
-    letter-spacing: 2px; pointer-events: none; white-space: pre;
-    left: -20px; right: -20px; width: auto;
+
+  /* Subtle star field */
+  body::after {
+    content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background-image:
+      radial-gradient(1px 1px at 20% 30%, rgba(255,255,255,0.4) 0%, transparent 100%),
+      radial-gradient(1px 1px at 80% 10%, rgba(255,255,255,0.3) 0%, transparent 100%),
+      radial-gradient(1px 1px at 60% 70%, rgba(255,255,255,0.25) 0%, transparent 100%),
+      radial-gradient(1px 1px at 10% 80%, rgba(255,255,255,0.3) 0%, transparent 100%),
+      radial-gradient(1px 1px at 90% 60%, rgba(255,255,255,0.2) 0%, transparent 100%),
+      radial-gradient(1px 1px at 40% 90%, rgba(255,255,255,0.35) 0%, transparent 100%),
+      radial-gradient(1px 1px at 70% 40%, rgba(255,255,255,0.2) 0%, transparent 100%),
+      radial-gradient(1px 1px at 30% 55%, rgba(255,255,255,0.25) 0%, transparent 100%);
+    background-size: 800px 600px;
   }
+
   #sphere-canvas { position: fixed; inset: 0; z-index: 1; }
+  #flame-canvas { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
+
   #title { position: fixed; top: 28px; left: 50%; transform: translateX(-50%); z-index: 10; text-align: center; pointer-events: none; }
   #title h1 {
     font-family: 'Orbitron', monospace; font-size: clamp(14px, 2vw, 22px);
@@ -28,15 +43,18 @@
     text-shadow: 0 0 20px rgba(0,229,255,0.7), 0 0 50px rgba(0,229,255,0.3);
   }
   #title p { font-size: 12px; color: rgba(255,255,255,0.35); letter-spacing: 0.15em; margin-top: 4px; }
+
   #counter {
     position: fixed; bottom: 36px; left: 50%; transform: translateX(-50%);
     z-index: 10; font-family: 'Orbitron', monospace; font-size: 11px;
     letter-spacing: 0.25em; color: rgba(255,255,255,0.25); pointer-events: none;
   }
   #counter span { color: var(--cyan); font-size: 20px; font-weight: 700; }
+
   #status { position: fixed; top: 16px; right: 20px; z-index: 10; font-family: 'Orbitron', monospace; font-size: 10px; letter-spacing: 0.15em; color: rgba(255,255,255,0.2); display: flex; align-items: center; gap: 6px; }
   #status-dot { width: 6px; height: 6px; border-radius: 50%; background: #2ecc71; animation: pulse 2s infinite; }
   @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.3} }
+
   #clear-btn { position: fixed; top: 0; right: 0; width: 56px; height: 56px; z-index: 100; cursor: default; background: transparent; border: none; outline: none; }
   #confirm-overlay { display: none; position: fixed; inset: 0; z-index: 300; background: rgba(0,0,0,0.78); align-items: center; justify-content: center; }
   #confirm-overlay.show { display: flex; }
@@ -48,17 +66,19 @@
   #btn-confirm:hover { background: rgba(0,229,255,0.22); }
   #btn-cancel { background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.35); border: 1px solid rgba(255,255,255,0.1); }
   #btn-cancel:hover { background: rgba(255,255,255,0.09); }
+  #new-sig-overlay { position: fixed; inset: 0; z-index: 20; pointer-events: none; display: flex; align-items: center; justify-content: center; }
   .ripple { position: fixed; border-radius: 50%; border: 1.5px solid var(--cyan); pointer-events: none; animation: rippleAnim 1.4s ease-out forwards; z-index: 5; }
   @keyframes rippleAnim { from{width:0;height:0;opacity:0.8;transform:translate(-50%,-50%);}to{width:600px;height:600px;opacity:0;transform:translate(-50%,-50%);} }
 </style>
 </head>
 <body>
-<div id="binary-bg"></div>
+<canvas id="flame-canvas"></canvas>
 <canvas id="sphere-canvas"></canvas>
 <div id="title"><h1>GAME ON SIGNATURE WALL</h1><p>BY AMIE</p></div>
 <div id="counter"><span id="sig-count">0</span>&nbsp;&nbsp;SIGNATURES</div>
 <div id="status"><div id="status-dot"></div>LIVE</div>
 <button id="clear-btn"></button>
+<div id="new-sig-overlay"></div>
 <div id="confirm-overlay">
   <div id="confirm-box">
     <p>CLEAR ALL SIGNATURES?</p>
@@ -70,558 +90,102 @@
 </div>
 
 <script>
-const SUPABASE_URL  = 'https://gpdkcalhqbvztctoofwh.supabase.co';
-const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdwZGtjYWxocWJ2enRjdG9vZndoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxMjIwMTksImV4cCI6MjA5MDY5ODAxOX0.M3B25IWhogS_8hKONXOjcjn4rFaJcBhIYWB77q2Z-Ew';
+const canvas = document.getElementById('sphere-canvas');
+const ctx    = canvas.getContext('2d');
+const flameCanvas = document.getElementById('flame-canvas');
+const fctx   = flameCanvas.getContext('2d');
 
-/* ── Binary bg ── */
-const binBg=document.getElementById('binary-bg');
-function fillBinary(){
-  // Each char is ~7.2px wide at font-size:12px letter-spacing:2px, each row ~14px tall
-  const cols=Math.ceil((window.innerWidth+40)/9)+6;
-  const rows=Math.ceil(window.innerHeight/14)+2;
-  let b='';
-  for(let i=0;i<rows;i++){for(let j=0;j<cols;j++)b+=Math.random()>.5?'1':'0';b+='\n';}
-  binBg.textContent=b;
+let W, H, cx, cy, R;
+function resize() {
+  W = canvas.width  = flameCanvas.width  = innerWidth;
+  H = canvas.height = flameCanvas.height = innerHeight;
+  cx = W / 2; cy = H / 2;
+  R  = Math.min(W, H) * 0.33;
 }
-fillBinary();
-window.addEventListener('resize',fillBinary);
+resize();
+window.addEventListener('resize', resize);
 
-/* ── Canvas ── */
-const canvas=document.getElementById('sphere-canvas');
-const ctx=canvas.getContext('2d');
-let W,H,cx,cy,R;
-function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight;cx=W/2;cy=H/2;R=Math.min(W,H)*0.33;}
-resize();window.addEventListener('resize',resize);
+const signatures = [];
+let rotY = 0, rotX = 0.28, isDragging = false, lastMX = 0, lastMY = 0;
 
-/* ── Glow processor ── */
-const glowCache=new Map();
-function buildGlowCanvas(img){
-  const GW=320,GH=120;
-  const raw=document.createElement('canvas');raw.width=GW;raw.height=GH;
-  const rctx=raw.getContext('2d');rctx.drawImage(img,0,0,GW,GH);
-  const idata=rctx.getImageData(0,0,GW,GH),d=idata.data;
-  let cs=0;
-  [[0,0],[GW-1,0],[0,GH-1],[GW-1,GH-1]].forEach(([x,y])=>{const i=(y*GW+x)*4;cs+=(d[i]+d[i+1]+d[i+2])/3;});
-  const darkOnLight=(cs/4)>180;
-  for(let i=0;i<d.length;i+=4){
-    const r=d[i],g=d[i+1],bl=d[i+2],a=d[i+3];
-    if(a<10){d[i+3]=0;continue;}
-    let ink=darkOnLight?1-(r+g+bl)/(3*255):a/255;
-    if(ink<0.06){d[i+3]=0;continue;}
-    const t=Math.min(1,ink*1.5);
-    d[i]=Math.round(180+75*t);d[i+1]=Math.round(220+35*t);d[i+2]=255;
-    d[i+3]=Math.round(255*Math.min(1,ink*1.8));
-  }
-  rctx.putImageData(idata,0,0);
-  const gc=document.createElement('canvas');gc.width=GW;gc.height=GH;
-  const gctx=gc.getContext('2d');
-  [[9,0.45],[4,0.65],[1.5,0.85],[0,1]].forEach(([blur,alpha])=>{
-    gctx.save();gctx.filter=blur?`blur(${blur}px)`:'none';gctx.globalAlpha=alpha;
-    gctx.drawImage(raw,0,0);gctx.restore();
+function project(fx, fy, fz) {
+  let x = fx * R, y = fy * R, z = fz * R;
+  const cY = Math.cos(rotY), sY = Math.sin(rotY);
+  let rx = x*cY - z*sY, rz = x*sY + z*cY, ry = y;
+  const cX = Math.cos(rotX), sX = Math.sin(rotX);
+  let ry2 = ry*cX - rz*sX, rz2 = ry*sX + rz*cX;
+  const fov = 900, sc = fov / (fov + rz2);
+  return { sx: cx + rx*sc, sy: cy + ry2*sc, scale: sc, depth: rz2 };
+}
+
+function fibonacciPos(index, total) {
+  const golden = Math.PI * (3 - Math.sqrt(5));
+  const yRaw   = 1 - ((index + 0.5) / (Math.max(total, 1))) * 2;
+  const y      = yRaw * 0.85;
+  const r      = Math.sqrt(Math.max(0, 1 - y*y));
+  const theta  = golden * index;
+  return { x: r*Math.cos(theta), y, z: r*Math.sin(theta) };
+}
+
+function repositionAll() {
+  const total = signatures.length;
+  signatures.forEach((s, i) => {
+    const p = fibonacciPos(i, total); s.fx = p.x; s.fy = p.y; s.fz = p.z;
   });
-  return gc;
 }
 
-/* ── Sphere state ── */
-const signatures=[];
-const seenIds=new Set();
-let rotY=0,rotX=0.28,isDragging=false,lastMX=0,lastMY=0;
-
-/* ────────────────────────────────────────────────────────────────────────
-   FLY-IN QUEUE
-   A simple flat array. One item animates at a time.
-   When it finishes, we shift the next one off the array.
-   No nesting, no lost references.
-───────────────────────────────────────────────────────────────────────── */
-const flyQueue=[];   // [{glowCanvas, name}]
-let flyIn=null;      // currently animating: {glowCanvas, name, phase, t0}
-
-const FLY_IN_MS=500,HOLD_MS=1800,SHRINK_MS=700;
-
-function enqueue(glowCanvas,name){
-  flyQueue.push({glowCanvas,name});
-  // If nothing is running, kick off immediately
-  if(!flyIn) dequeue();
-}
-
-function dequeue(){
-  if(flyQueue.length===0){flyIn=null;return;}
-  const next=flyQueue.shift();
-  flyIn={glowCanvas:next.glowCanvas,name:next.name,phase:'in',t0:performance.now()};
-}
-
-function tickFlyIn(now){
-  if(!flyIn)return;
-  const elapsed=now-flyIn.t0;
-  if(flyIn.phase==='in'){
-    if(elapsed>=FLY_IN_MS){flyIn.phase='hold';flyIn.t0=now;}
-  } else if(flyIn.phase==='hold'){
-    if(elapsed>=HOLD_MS){
-      // Land it on the sphere
-      commitToSphere(flyIn.glowCanvas,flyIn.name);
-      flyIn.phase='shrink';flyIn.t0=now;
-    }
-  } else if(flyIn.phase==='shrink'){
-    if(elapsed>=SHRINK_MS){
-      // Make the sphere entry fully visible immediately
-      const s=signatures[signatures.length-1];
-      if(s)s.opacity=1;
-      // Move on to next queued item
-      dequeue();
-    }
-  }
-}
-
-function drawFlyIn(now){
-  if(!flyIn)return;
-  const elapsed=now-flyIn.t0;
-  const SIG_ASPECT=120/320;
-  const BIG_W=Math.min(W*0.42,440);
-  const BIG_H=BIG_W*SIG_ASPECT;
-  let alpha=1,scl=1,sx=cx,sy=cy;
-
-  if(flyIn.phase==='in'){
-    const p=Math.min(1,elapsed/FLY_IN_MS);
-    const ease=1-Math.pow(1-p,3);
-    alpha=ease;scl=0.3+0.7*ease;
-  } else if(flyIn.phase==='hold'){
-    alpha=1;scl=1;
-  } else if(flyIn.phase==='shrink'){
-    const p=Math.min(1,elapsed/SHRINK_MS);
-    const ease=p*p*(3-2*p);
-    const s=signatures[signatures.length-1];
-    let tx=cx,ty=cy,tScl=1;
-    if(s){
-      const proj=project(s.fx,s.fy,s.fz);
-      tx=proj.sx;ty=proj.sy;
-      const capSc=Math.min(proj.scale,1.15);
-      const targetW=sigBaseW()*capSc;
-      tScl=targetW/BIG_W;
-    }
-    sx=cx+(tx-cx)*ease;
-    sy=cy+(ty-cy)*ease;
-    scl=1+(tScl-1)*ease;
-    alpha=1-ease*0.25;
-  }
-
-  const dw=BIG_W*scl,dh=BIG_H*scl;
-  ctx.save();
-  ctx.globalAlpha=alpha;
-  ctx.globalCompositeOperation='screen';
-  ctx.drawImage(flyIn.glowCanvas,sx-dw/2,sy-dh/2,dw,dh);
-  ctx.restore();
-}
-
-/* ── Sphere helpers ── */
-const SIG_ASPECT=120/320;
-const sigBaseW=()=>R*0.58;
-
-function project(fx,fy,fz){
-  let x=fx*R,y=fy*R,z=fz*R;
-  const cY=Math.cos(rotY),sY=Math.sin(rotY);
-  let rx=x*cY-z*sY,rz=x*sY+z*cY,ry=y;
-  const cX=Math.cos(rotX),sX=Math.sin(rotX);
-  let ry2=ry*cX-rz*sX,rz2=ry*sX+rz*cX;
-  const fov=900,sc=fov/(fov+rz2);
-  return{sx:cx+rx*sc,sy:cy+ry2*sc,scale:sc,depth:rz2};
-}
-
-function fibonacciPos(index,total){
-  const golden=Math.PI*(3-Math.sqrt(5));
-  const yRaw=1-((index+0.5)/(Math.max(total,1)))*2;
-  const y=yRaw*0.85;
-  const r=Math.sqrt(Math.max(0,1-y*y));
-  const theta=golden*index;
-  return{x:r*Math.cos(theta),y,z:r*Math.sin(theta)};
-}
-
-function repositionAll(){
-  const total=signatures.length;
-  signatures.forEach((s,i)=>{const p=fibonacciPos(i,total);s.fx=p.x;s.fy=p.y;s.fz=p.z;});
-}
-
-function commitToSphere(glowCanvas,name){
-  signatures.push({glowCanvas,name,fx:0,fy:0,fz:1,opacity:0});
+function commitToSphere(glowCanvas, name) {
+  signatures.push({ glowCanvas, name, fx: 0, fy: 0, fz: 1, opacity: 0 });
   repositionAll();
-  document.getElementById('sig-count').textContent=signatures.length;
+  document.getElementById('sig-count').textContent = signatures.length;
 }
 
 /* ── Drag ── */
-canvas.addEventListener('mousedown',e=>{isDragging=true;lastMX=e.clientX;lastMY=e.clientY;});
-canvas.addEventListener('mousemove',e=>{if(!isDragging)return;rotY+=(e.clientX-lastMX)*0.005;rotX+=(e.clientY-lastMY)*0.003;lastMX=e.clientX;lastMY=e.clientY;});
-canvas.addEventListener('mouseup',()=>isDragging=false);
-canvas.addEventListener('mouseleave',()=>isDragging=false);
-canvas.addEventListener('touchstart',e=>{isDragging=true;lastMX=e.touches[0].clientX;lastMY=e.touches[0].clientY;});
-canvas.addEventListener('touchmove',e=>{if(!isDragging)return;e.preventDefault();rotY+=(e.touches[0].clientX-lastMX)*0.005;rotX+=(e.touches[0].clientY-lastMY)*0.003;lastMX=e.touches[0].clientX;lastMY=e.touches[0].clientY;},{passive:false});
-canvas.addEventListener('touchend',()=>isDragging=false);
+canvas.addEventListener('mousedown',  e => { isDragging = true; lastMX = e.clientX; lastMY = e.clientY; });
+canvas.addEventListener('mousemove',  e => { if (!isDragging) return; rotY += (e.clientX - lastMX)*0.005; rotX += (e.clientY - lastMY)*0.003; lastMX = e.clientX; lastMY = e.clientY; });
+canvas.addEventListener('mouseup',    () => isDragging = false);
+canvas.addEventListener('mouseleave', () => isDragging = false);
+canvas.addEventListener('touchstart', e => { isDragging = true; lastMX = e.touches[0].clientX; lastMY = e.touches[0].clientY; });
+canvas.addEventListener('touchmove',  e => { if (!isDragging) return; e.preventDefault(); rotY += (e.touches[0].clientX - lastMX)*0.005; rotX += (e.touches[0].clientY - lastMY)*0.003; lastMX = e.touches[0].clientX; lastMY = e.touches[0].clientY; }, { passive: false });
+canvas.addEventListener('touchend',   () => isDragging = false);
 
-/* ── Wireframe ── */
-function drawWireframe(){
-  ctx.save();ctx.lineWidth=1.0;
-  [[false,'rgba(0,200,255,0.07)'],[true,'rgba(0,229,255,0.20)']].forEach(([front,color])=>{
-    ctx.strokeStyle=color;
-    for(let i=0;i<=8;i++){
-      const phi=(i/8)*Math.PI;ctx.beginPath();let first=true;
-      for(let j=0;j<=64;j++){
-        const theta=(j/64)*Math.PI*2;
-        const p=project(Math.sin(phi)*Math.cos(theta),Math.cos(phi),Math.sin(phi)*Math.sin(theta));
-        if((p.depth>0)===front){if(first){ctx.moveTo(p.sx,p.sy);first=false;}else ctx.lineTo(p.sx,p.sy);}else first=true;
-      }
-      ctx.stroke();
+/* ── Sphere wireframe ── */
+function drawWireframe() {
+  ctx.save();
+  ctx.lineWidth = 0.6;
+  ctx.strokeStyle = 'rgba(0,180,255,0.03)'; // more transparent back lines
+  for (let i = 0; i <= 8; i++) {
+    const phi = (i / 8) * Math.PI;
+    ctx.beginPath(); let first = true;
+    for (let j = 0; j <= 64; j++) {
+      const theta = (j / 64) * Math.PI * 2;
+      const p = project(Math.sin(phi)*Math.cos(theta), Math.cos(phi), Math.sin(phi)*Math.sin(theta));
+      if (p.depth <= 0) { if (first) { ctx.moveTo(p.sx, p.sy); first = false; } else ctx.lineTo(p.sx, p.sy); } else first = true;
     }
-    for(let i=0;i<12;i++){
-      const theta=(i/12)*Math.PI*2;ctx.beginPath();let first=true;
-      for(let j=0;j<=40;j++){
-        const phi=(j/40)*Math.PI;
-        const p=project(Math.sin(phi)*Math.cos(theta),Math.cos(phi),Math.sin(phi)*Math.sin(theta));
-        if((p.depth>0)===front){if(first){ctx.moveTo(p.sx,p.sy);first=false;}else ctx.lineTo(p.sx,p.sy);}else first=true;
-      }
-      ctx.stroke();
+    ctx.stroke();
+  }
+  ctx.lineWidth = 0.9;
+  ctx.strokeStyle = 'rgba(0,220,255,0.08)'; // more transparent front lines
+  for (let i = 0; i <= 8; i++) {
+    const phi = (i / 8) * Math.PI;
+    ctx.beginPath(); let first = true;
+    for (let j = 0; j <= 64; j++) {
+      const theta = (j / 64) * Math.PI * 2;
+      const p = project(Math.sin(phi)*Math.cos(theta), Math.cos(phi), Math.sin(phi)*Math.sin(theta));
+      if (p.depth > 0) { if (first) { ctx.moveTo(p.sx, p.sy); first = false; } else ctx.lineTo(p.sx, p.sy); } else first = true;
     }
-  });
+    ctx.stroke();
+  }
   ctx.restore();
 }
 
-/* ── Render loop ── */
-function animate(now){
+/* ── Main animation ── */
+function animate(now) {
   ctx.clearRect(0,0,W,H);
-  if(!isDragging)rotY+=0.003;
-
-  const g=ctx.createRadialGradient(cx,cy,0,cx,cy,R*1.2);
-  g.addColorStop(0,'rgba(26,108,255,0.05)');
-  g.addColorStop(0.6,'rgba(0,229,255,0.02)');
-  g.addColorStop(1,'transparent');
-  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
-
   drawWireframe();
-  tickFlyIn(now);
-
-  // Draw sphere signatures clipped to sphere boundary
-  ctx.save();
-  ctx.beginPath();
-  ctx.arc(cx,cy,R*1.08,0,Math.PI*2);
-  ctx.clip();
-
-  const projected=signatures.map(s=>{const p=project(s.fx,s.fy,s.fz);return{s,...p};}).sort((a,b)=>a.depth-b.depth);
-  for(const item of projected){
-    const{s,sx,sy,scale,depth}=item;
-    if(!s.glowCanvas)continue;
-    // During shrink the newest entry is drawn by drawFlyIn — skip it here
-    if(flyIn&&flyIn.phase==='shrink'&&s===signatures[signatures.length-1])continue;
-    if(s.opacity<1)s.opacity=Math.min(1,s.opacity+0.03);
-    const depthNorm=(depth+R)/(2*R);
-    const depthFade=0.10+0.90*Math.pow(depthNorm,1.3);
-    const capSc=Math.min(scale,1.15);
-    const sw=sigBaseW()*capSc,sh=sw*SIG_ASPECT;
-    ctx.save();
-    ctx.globalAlpha=depthFade*s.opacity;
-    ctx.globalCompositeOperation='screen';
-    ctx.drawImage(s.glowCanvas,sx-sw/2,sy-sh/2,sw,sh);
-    ctx.restore();
-  }
-  ctx.restore();
-
-  drawFlyIn(now);
   requestAnimationFrame(animate);
 }
 requestAnimationFrame(animate);
-
-/* ── Ripple ── */
-function spawnRipple(){
-  const el=document.createElement('div');el.className='ripple';
-  el.style.left=cx+'px';el.style.top=cy+'px';
-  document.body.appendChild(el);setTimeout(()=>el.remove(),1500);
-}
-
-/* ────────────────────────────────────────────────────────────────────────
-   DATA LAYER
-   seenIds is marked IMMEDIATELY (before image load) so concurrent
-   poll + realtime events never double-process the same row.
-───────────────────────────────────────────────────────────────────────── */
-function addSilently(row){
-  // Mark seen immediately
-  seenIds.add(row.id);
-  const img=new Image();
-  img.onload=()=>{
-    const key=row.id; // use row ID as cache key — unique, stable
-    if(!glowCache.has(key))glowCache.set(key,buildGlowCanvas(img));
-    signatures.push({glowCanvas:glowCache.get(key),name:row.name,fx:0,fy:0,fz:1,opacity:0});
-    repositionAll();
-    document.getElementById('sig-count').textContent=signatures.length;
-  };
-  img.src=row.image_data;
-}
-
-function handleNewRow(row){
-  if(!row||seenIds.has(row.id))return;
-  // Mark seen immediately — before anything async
-  seenIds.add(row.id);
-  spawnRipple();
-  const img=new Image();
-  img.onload=()=>{
-    const key=row.id;
-    if(!glowCache.has(key))glowCache.set(key,buildGlowCanvas(img));
-    enqueue(glowCache.get(key),row.name);
-  };
-  img.src=row.image_data;
-}
-
-async function loadExisting(){
-  try{
-    const res=await fetch(`${SUPABASE_URL}/rest/v1/signatures?select=*&order=created_at.asc`,{headers:{'apikey':SUPABASE_ANON,'Authorization':`Bearer ${SUPABASE_ANON}`}});
-    const data=await res.json();
-    if(Array.isArray(data))data.forEach(row=>addSilently(row));
-  }catch(e){console.error('loadExisting',e);}
-}
-
-let heartbeatInterval=null,realtimeRef=1;
-function subscribeRealtime(){
-  const ws=new WebSocket(`wss://gpdkcalhqbvztctoofwh.supabase.co/realtime/v1/websocket?apikey=${SUPABASE_ANON}&vsn=1.0.0`);
-  ws.onopen=()=>{
-    ws.send(JSON.stringify({topic:'realtime:public:signatures',event:'phx_join',payload:{config:{broadcast:{self:false},presence:{key:''},postgres_changes:[{event:'INSERT',schema:'public',table:'signatures'}]}},ref:String(realtimeRef++)}));
-    heartbeatInterval=setInterval(()=>ws.send(JSON.stringify({topic:'phoenix',event:'heartbeat',payload:{},ref:String(realtimeRef++)})),25000);
-  };
-  ws.onmessage=e=>{
-    let msg;try{msg=JSON.parse(e.data);}catch{return;}
-    if((msg.event==='INSERT'||msg.event==='postgres_changes')&&msg.payload?.data?.record)handleNewRow(msg.payload.data.record);
-  };
-  ws.onerror=err=>console.warn('[RT]',err);
-  ws.onclose=()=>{clearInterval(heartbeatInterval);setTimeout(subscribeRealtime,3000);};
-}
-
-async function pollForNew(){
-  try{
-    const res=await fetch(`${SUPABASE_URL}/rest/v1/signatures?select=*&order=created_at.desc&limit=10`,{headers:{'apikey':SUPABASE_ANON,'Authorization':`Bearer ${SUPABASE_ANON}`}});
-    const data=await res.json();
-    if(Array.isArray(data))[...data].reverse().forEach(row=>{if(!seenIds.has(row.id))handleNewRow(row);});
-  }catch(e){}
-}
-
-/* ── Clear ── */
-document.getElementById('clear-btn').addEventListener('click',()=>{
-  document.getElementById('confirm-overlay').classList.add('show');
-});
-document.getElementById('btn-cancel').addEventListener('click',()=>{
-  document.getElementById('confirm-overlay').classList.remove('show');
-});
-document.getElementById('btn-confirm').addEventListener('click',async()=>{
-  document.getElementById('confirm-overlay').classList.remove('show');
-  signatures.length=0;
-  glowCache.clear();
-  seenIds.clear();
-  flyQueue.length=0;
-  flyIn=null;
-  document.getElementById('sig-count').textContent='0';
-  try{
-    await fetch(`${SUPABASE_URL}/rest/v1/signatures?id=neq.00000000-0000-0000-0000-000000000000`,{
-      method:'DELETE',
-      headers:{'apikey':SUPABASE_ANON,'Authorization':`Bearer ${SUPABASE_ANON}`,'Content-Type':'application/json','Prefer':'return=minimal'}
-    });
-  }catch(e){console.warn('clear error',e);}
-});
-
-loadExisting().then(()=>{subscribeRealtime();setInterval(pollForNew,5000);});
-</script>
-  <!-- ══════════════ MASCOT OVERLAY ══════════════ -->
-<style>
-#mascot-wrap {
-  position: fixed; bottom: 0; z-index: 50; pointer-events: none;
-  width: 320px; height: 420px; transition: left 0s, right 0s;
-}
-#mascot-wrap.side-left  { left: 0; right: auto; }
-#mascot-wrap.side-right { right: 0; left: auto; }
-#mascot-img {
-  position: absolute; bottom: 0; width: 320px;
-  filter:
-    drop-shadow(-12px 0 35px rgba(0,229,255,0.45))
-    drop-shadow(0 -8px 25px rgba(100,40,255,0.30))
-    drop-shadow(0 20px 18px rgba(0,0,0,0.7));
-  transform-origin: bottom center;
-  will-change: transform;
-}
-#mascot-wrap.side-left  #mascot-img { left: 0; }
-#mascot-wrap.side-right #mascot-img { right: 0; }
-#mascot-bubble {
-  position: absolute; top: 30px;
-  background: rgba(2,10,28,0.93);
-  border: 1.5px solid rgba(0,229,255,0.55);
-  border-radius: 14px; padding: 10px 20px;
-  font-family: 'Orbitron', monospace; font-size: 13px;
-  font-weight: 700; color: #00e5ff; white-space: nowrap;
-  text-shadow: 0 0 14px rgba(0,229,255,0.9);
-  box-shadow: 0 0 22px rgba(0,229,255,0.18), inset 0 0 10px rgba(0,229,255,0.06);
-  opacity: 0; transform: scale(0.8) translateY(8px);
-  transition: opacity 0.28s ease, transform 0.28s ease;
-}
-#mascot-wrap.side-left  #mascot-bubble { left: 260px; }
-#mascot-wrap.side-right #mascot-bubble { right: 260px; }
-#mascot-bubble.show { opacity: 1; transform: scale(1) translateY(0); }
-#mascot-bubble::after {
-  content: ''; position: absolute; bottom: -9px;
-  border: 9px solid transparent; border-top-color: rgba(0,229,255,0.55);
-  border-bottom: 0;
-}
-#mascot-wrap.side-left  #mascot-bubble::after { left: 20px; }
-#mascot-wrap.side-right #mascot-bubble::after { right: 20px; }
-</style>
-
-<div id="mascot-wrap" class="side-right">
-  <img id="mascot-img"
-    src="662290127_2659513921085983_2892569749052643846_n-removebg-preview.png"
-    alt="mascot" />
-  <div id="mascot-bubble"></div>
-</div>
-
-<script>
-(function(){
-  const wrap   = document.getElementById('mascot-wrap');
-  const img    = document.getElementById('mascot-img');
-  const bubble = document.getElementById('mascot-bubble');
-
-  /* ── tweener ── */
-  function tween(from, to, ms, ease, onV, onDone){
-    const t0 = performance.now();
-    (function tick(now){
-      let p = Math.min(1,(now-t0)/ms), e = ease(p);
-      onV(from+(to-from)*e);
-      p < 1 ? requestAnimationFrame(tick) : onDone && onDone();
-    })(t0);
-  }
-  const easeOut  = t => 1-Math.pow(1-t,3);
-  const easeIn   = t => t*t*t;
-  const easeIO   = t => t<.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2;
-
-  /* ── state ── */
-  let side = 'right';   // 'left' | 'right'
-  let slideX = 0;       // px exposed (positive = more visible, regardless of side)
-  let skewY  = 0;       // head tilt degrees
-  let bobPhase = 0, bobRAF = null, bobBase = 0;
-
-  function buildTransform(){
-    const tx = side === 'left' ? slideX : -slideX;
-    if(side === 'left') return `scaleX(-1) translateX(${-slideX}px) skewY(${skewY}deg)`;
-    return `translateX(${-slideX}px) skewY(${skewY}deg)`;
-  }
-  function commit(){ img.style.transform = buildTransform(); }
-
-  function slideTo(px, ms, ease, cb){
-    const from = slideX;
-    tween(from, px, ms, ease, v=>{ slideX=v; commit(); }, cb);
-  }
-  function skewTo(deg, ms, ease, cb){
-    const from = skewY;
-    tween(from, deg, ms, ease, v=>{ skewY=v; commit(); }, cb);
-  }
-  function startBob(){
-    bobPhase = 0;
-    function tick(){ bobPhase+=0.045; img.style.marginBottom=(Math.sin(bobPhase)*5)+'px'; bobRAF=requestAnimationFrame(tick); }
-    tick();
-  }
-  function stopBob(cb){ cancelAnimationFrame(bobRAF); img.style.marginBottom='0px'; cb&&cb(); }
-
-  function showBubble(txt){ bubble.textContent=txt; bubble.classList.add('show'); }
-  function hideBubble(){ bubble.classList.remove('show'); }
-
-  function setSide(s){
-    side = s;
-    wrap.className = 'side-'+s;
-    slideX = 0; skewY = 0;
-    commit();
-  }
-
-  /* ══ BEHAVIOR A: peek-look-retreat ══ */
-  function behaviorPeek(nextSide, done){
-    setSide(nextSide);
-    // peek a little
-    slideTo(90, 550, easeOut, ()=>{
-      // look one way then other
-      skewTo(7, 420, easeIO, ()=>{
-        skewTo(-7, 600, easeIO, ()=>{
-          skewTo(0, 380, easeIO, ()=>{
-            setTimeout(()=> slideTo(0, 620, easeIn, done), 500);
-          });
-        });
-      });
-    });
-  }
-
-  /* ══ BEHAVIOR B: come out + WAVE ══ */
-  function behaviorWave(nextSide, done){
-    setSide(nextSide);
-    // sly peek first
-    slideTo(75, 500, easeOut, ()=>{
-      setTimeout(()=>{
-        // slide out fully
-        slideTo(215, 750, easeOut, ()=>{
-          startBob();
-          showBubble('COME JOIN US !! 👋');
-          // wave via skew oscillation
-          let n = 0;
-          function wave(){
-            if(n > 6){ skewTo(0,300,easeIO,()=>{ hideBubble(); stopBob(()=>{ setTimeout(()=> slideTo(0,750,easeIn,done),300); }); }); return; }
-            skewTo(n%2===0?4:-4, 200, easeIO, ()=>{ n++; wave(); });
-          }
-          wave();
-        });
-      }, 400);
-    });
-  }
-
-  /* ══ BEHAVIOR C: sly-peek + WHISPER ══ */
-  function behaviorWhisper(nextSide, done){
-    setSide(nextSide);
-    // slow sly slide
-    slideTo(65, 800, easeOut, ()=>{
-      // suspicious look-around
-      let checks = 0;
-      function lookAround(){
-        if(checks >= 4){
-          // slide out for whisper
-          slideTo(220, 600, easeOut, ()=>{
-            startBob();
-            showBubble('✦ we have free lucky draw ✦');
-            // nervous look-around while whispering
-            let w = 0;
-            function nervousLook(){
-              if(w > 5){
-                hideBubble();
-                stopBob(()=>{ slideTo(0, 800, easeIn, done); });
-                return;
-              }
-              skewTo(w%2===0?5:-3, 300, easeIO, ()=>{ w++; nervousLook(); });
-            }
-            setTimeout(nervousLook, 600);
-          });
-          return;
-        }
-        skewTo(checks%2===0?6:-6, 380, easeIO, ()=>{ checks++; lookAround(); });
-      }
-      lookAround();
-    });
-  }
-
-  /* ══ SEQUENCE: cycle through all 3, alternating sides ══ */
-  const sequence = [
-    { fn: behaviorWave,    side: 'right' },
-    { fn: behaviorWhisper, side: 'left'  },
-    { fn: behaviorPeek,    side: 'right' },
-    { fn: behaviorPeek,    side: 'left'  },
-    { fn: behaviorWave,    side: 'left'  },
-    { fn: behaviorWhisper, side: 'right' },
-  ];
-  let seqIdx = 0;
-
-  function runNext(){
-    const {fn, side: s} = sequence[seqIdx % sequence.length];
-    seqIdx++;
-    fn(s, ()=>{
-      // random pause between 4–8 seconds
-      setTimeout(runNext, 4000 + Math.random()*4000);
-    });
-  }
-
-  setTimeout(runNext, 2000);
-})();
 </script>
 </body>
 </html>
