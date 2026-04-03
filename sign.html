@@ -2,246 +2,200 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Signature</title>
-
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>签名 · Sign</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400&family=Orbitron:wght@400;700&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root { --bg: #04050f; --cyan: #00e5ff; --blue: #1a6cff; }
+  html, body { height: 100%; width: 100%; overflow: hidden; touch-action: none; }
+  body {
+    background: var(--bg); color: #fff;
+    font-family: 'Noto Sans SC', sans-serif;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 100vh; padding: 24px;
+  }
+  body::before {
+    content: ''; position: fixed; inset: 0; pointer-events: none;
+    background: radial-gradient(ellipse 80% 60% at 50% 50%, rgba(26,108,255,0.07) 0%, transparent 70%);
+  }
+  .card { width: 100%; max-width: 600px; position: relative; z-index: 1; }
+  h1 {
+    font-family: 'Orbitron', monospace; font-size: 18px; letter-spacing: 0.25em;
+    color: var(--cyan); text-align: center; margin-bottom: 6px;
+    text-shadow: 0 0 20px rgba(0,229,255,0.6);
+  }
+  p.sub { font-size: 11px; color: rgba(255,255,255,0.3); text-align: center; letter-spacing: 0.12em; margin-bottom: 28px; }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
+  /* Calligraphy Pad */
+  #pad-wrapper {
+    position: relative; border: 1px solid rgba(0,229,255,0.2);
+    background: radial-gradient(circle at center, rgba(255,255,255,0.03) 0%, transparent 100%);
+    margin-bottom: 18px; border-radius: 8px; overflow: hidden;
+    box-shadow: inset 0 0 30px rgba(0,0,0,0.5);
+  }
+  #pad-hint {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    font-size: 12px; letter-spacing: 0.2em; color: rgba(0,229,255,0.15);
+    font-family: 'Orbitron', sans-serif; pointer-events: none; white-space: nowrap;
+    transition: opacity 0.5s ease;
+  }
+  #signature-pad { display: block; width: 100%; height: 320px; cursor: crosshair; touch-action: none; }
 
-body {
-  background: #02040a;
-  color: white;
-  font-family: 'Orbitron', sans-serif;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-}
-
-/* glow background */
-body::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background: radial-gradient(circle, rgba(0,180,255,0.1), transparent 60%);
-  animation: pulse 6s infinite;
-}
-@keyframes pulse {
-  0%,100% { opacity: .4 }
-  50% { opacity: 1 }
-}
-
-/* card */
-.card {
-  width: 90%;
-  max-width: 420px;
-  padding: 24px;
-  border-radius: 18px;
-  background: rgba(10,20,40,0.4);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(0,200,255,0.2);
-  text-align: center;
-}
-
-/* circular device */
-#pad-wrapper {
-  position: relative;
-  width: min(80vw, 320px);
-  aspect-ratio: 1;
-  margin: 20px auto;
-  border-radius: 50%;
-
-  background: radial-gradient(circle at 50% 40%, #0a1a2f, #02040a 70%);
-  box-shadow:
-    0 0 40px rgba(0,150,255,0.2),
-    inset 0 0 30px rgba(0,150,255,0.15),
-    inset 0 0 80px rgba(0,0,0,0.8);
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* canvas */
-#signature-pad {
-  width: 85%;
-  height: 85%;
-  border-radius: 12px;
-  background: linear-gradient(145deg, #0b223d, #081427);
-  box-shadow: inset 0 0 20px rgba(0,180,255,0.2);
-  touch-action: none;
-}
-
-/* hint */
-#pad-hint {
-  position: absolute;
-  color: rgba(255,255,255,0.15);
-  font-size: 12px;
-  pointer-events: none;
-}
-
-/* input */
-input {
-  width: 100%;
-  padding: 12px;
-  margin-bottom: 12px;
-  border-radius: 6px;
-  border: 1px solid rgba(0,200,255,0.3);
-  background: rgba(255,255,255,0.05);
-  color: white;
-}
-
-/* buttons */
-.row {
-  display: flex;
-  gap: 10px;
-}
-button {
-  flex: 1;
-  padding: 12px;
-  border-radius: 6px;
-  border: none;
-  cursor: pointer;
-}
-
-.clear {
-  background: transparent;
-  border: 1px solid #888;
-  color: #aaa;
-}
-
-.submit {
-  background: rgba(0,229,255,0.2);
-  color: #00e5ff;
-}
+  /* UI Elements */
+  #name-input {
+    width: 100%; background: rgba(255,255,255,0.03); border: 1px solid rgba(0,229,255,0.2);
+    color: #fff; font-family: 'Noto Sans SC', sans-serif; font-size: 15px;
+    padding: 13px 16px; outline: none; margin-bottom: 16px; border-radius: 4px;
+    transition: all 0.3s;
+  }
+  #name-input:focus { border-color: var(--cyan); background: rgba(0,229,255,0.05); }
+  .btn-row { display: flex; gap: 12px; }
+  .btn {
+    flex: 1; padding: 14px; font-family: 'Orbitron', monospace;
+    font-size: 11px; letter-spacing: 0.15em; cursor: pointer;
+    border: 1px solid; border-radius: 4px; transition: all 0.25s;
+  }
+  .btn-clear { background: transparent; border-color: rgba(255,255,255,0.1); color: rgba(255,255,255,0.4); }
+  .btn-submit { background: rgba(0,229,255,0.1); border-color: var(--cyan); color: var(--cyan); font-weight: bold; }
+  
+  #success { display: none; text-align: center; padding: 40px 0; }
+  #toast {
+    position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
+    background: rgba(255,80,80,0.9); color: #fff; font-size: 12px;
+    padding: 10px 24px; border-radius: 4px; opacity: 0; transition: 0.3s; pointer-events: none;
+  }
+  #toast.show { opacity: 1; }
 </style>
 </head>
-
 <body>
 
 <div class="card">
-  <h3>SIGN HERE</h3>
-
-  <div id="pad-wrapper">
-    <canvas id="signature-pad"></canvas>
-    <div id="pad-hint">SIGN</div>
+  <div id="form-view">
+    <h1>DIGITAL SIGNATURE</h1>
+    <p class="sub">VIRTUAL CALLIGRAPHY INTERFACE</p>
+    <div id="pad-wrapper">
+      <div id="pad-hint">在此签名 · SIGN HERE</div>
+      <canvas id="signature-pad"></canvas>
+    </div>
+    <input id="name-input" type="text" placeholder="您的姓名 · Your name" maxlength="24">
+    <div class="btn-row">
+      <button class="btn btn-clear" onclick="clearPad()">CLEAR</button>
+      <button class="btn btn-submit" id="submit-btn" onclick="submitSig()">SUBMIT</button>
+    </div>
   </div>
 
-  <input id="name" placeholder="Your name (optional)" />
-
-  <div class="row">
-    <button class="clear" onclick="clearPad()">CLEAR</button>
-    <button class="submit" onclick="submitSig()">SUBMIT</button>
+  <div id="success">
+    <h2 style="color: var(--cyan); margin-bottom: 10px;">SUCCESS</h2>
+    <p style="color: rgba(255,255,255,0.5); margin-bottom: 20px;">Your mark has been recorded.</p>
+    <button class="btn btn-clear" onclick="resetForm()">SIGN AGAIN</button>
   </div>
 </div>
 
+<div id="toast"></div>
+
 <script>
-const canvas = document.getElementById('signature-pad');
-const ctx = canvas.getContext('2d');
-
+const pad = document.getElementById('signature-pad');
+const ctx = pad.getContext('2d');
 let drawing = false;
-let lastX = 0;
-let lastY = 0;
-let hasDrawn = false;
+let points = [];
+let hasMark = false;
 
-/* 🔥 PERFECT SCALING FIX */
-function resizeCanvas() {
-  const rect = canvas.getBoundingClientRect();
-  const ratio = window.devicePixelRatio || 1;
+// Brush Settings
+const MAX_WIDTH = 6;
+const MIN_WIDTH = 1.5;
+const VELOCITY_FILTER = 0.7; // Smooths thickness changes
 
-  canvas.width = rect.width * ratio;
-  canvas.height = rect.height * ratio;
-
-  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.strokeStyle = '#b8f1ff';
-  ctx.shadowColor = 'rgba(0,200,255,0.9)';
-  ctx.shadowBlur = 18;
+function resize() {
+  const ratio = Math.max(window.devicePixelRatio || 1, 1);
+  pad.width = pad.offsetWidth * ratio;
+  pad.height = pad.offsetHeight * ratio;
+  ctx.scale(ratio, ratio);
+  clearPad();
 }
 
-resizeCanvas();
-window.addEventListener('resize', resizeCanvas);
+window.addEventListener('resize', resize);
+setTimeout(resize, 100);
 
-/* get position */
 function getPos(e) {
-  const rect = canvas.getBoundingClientRect();
+  const rect = pad.getBoundingClientRect();
   const t = e.touches ? e.touches[0] : e;
-  return {
-    x: t.clientX - rect.left,
-    y: t.clientY - rect.top
-  };
+  return { x: t.clientX - rect.left, y: t.clientY - rect.top, t: Date.now() };
 }
 
-/* start */
-function start(e) {
+function startDraw(e) {
   drawing = true;
-  const p = getPos(e);
-  lastX = p.x;
-  lastY = p.y;
-  document.getElementById('pad-hint').style.opacity = 0;
+  points = [getPos(e)];
+  document.getElementById('pad-hint').style.opacity = '0';
 }
 
-/* draw */
-function draw(e) {
+function moveDraw(e) {
   if (!drawing) return;
-
   const p = getPos(e);
+  points.push(p);
+  
+  if (points.length > 2) {
+    const lastPoint = points[points.length - 2];
+    const dist = Math.sqrt(Math.pow(p.x - lastPoint.x, 2) + Math.pow(p.y - lastPoint.y, 2));
+    const time = p.t - lastPoint.t;
+    const velocity = dist / (time || 1);
 
-  const dx = p.x - lastX;
-  const dy = p.y - lastY;
-  const speed = Math.sqrt(dx*dx + dy*dy);
+    // Calligraphy logic: Faster = Thinner
+    let targetWidth = Math.max(MIN_WIDTH, MAX_WIDTH - velocity * 1.5);
+    
+    ctx.beginPath();
+    ctx.strokeStyle = 'white';
+    ctx.lineWidth = targetWidth;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    
+    // Add subtle glow bleed
+    ctx.shadowBlur = 2;
+    ctx.shadowColor = 'rgba(0, 229, 255, 0.4)';
 
-  const min = 1.5;
-  const max = 4.5;
-  ctx.lineWidth = Math.max(max - speed * 0.15, min);
-
-  ctx.beginPath();
-  ctx.moveTo(lastX, lastY);
-  ctx.lineTo(p.x, p.y);
-  ctx.stroke();
-
-  lastX = p.x;
-  lastY = p.y;
-  hasDrawn = true;
-}
-
-/* end */
-function end() { drawing = false; }
-
-/* events */
-canvas.addEventListener('mousedown', start);
-canvas.addEventListener('mousemove', draw);
-canvas.addEventListener('mouseup', end);
-canvas.addEventListener('mouseleave', end);
-
-canvas.addEventListener('touchstart', e => { e.preventDefault(); start(e); });
-canvas.addEventListener('touchmove', e => { e.preventDefault(); draw(e); });
-canvas.addEventListener('touchend', end);
-
-/* clear */
-function clearPad() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  document.getElementById('pad-hint').style.opacity = 1;
-  hasDrawn = false;
-}
-
-/* submit (dummy) */
-function submitSig() {
-  if (!hasDrawn) {
-    alert("Please sign first");
-    return;
+    ctx.moveTo(lastPoint.x, lastPoint.y);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+    hasMark = true;
   }
+}
 
-  const img = canvas.toDataURL();
-  console.log(img);
+function endDraw() { drawing = false; points = []; }
 
-  alert("Signature captured ✨");
+pad.addEventListener('mousedown', startDraw);
+window.addEventListener('mousemove', moveDraw);
+window.addEventListener('mouseup', endDraw);
+pad.addEventListener('touchstart', e => { e.preventDefault(); startDraw(e); }, {passive: false});
+pad.addEventListener('touchmove', e => { e.preventDefault(); moveDraw(e); }, {passive: false});
+pad.addEventListener('touchend', endDraw);
+
+function clearPad() {
+  ctx.clearRect(0, 0, pad.width, pad.height);
+  document.getElementById('pad-hint').style.opacity = '1';
+  hasMark = false;
+}
+
+// Keep your Supabase logic here
+async function submitSig() {
+  if(!hasMark) { showToast('Please sign first'); return; }
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  // ... (Your existing fetch logic)
+  document.getElementById('form-view').style.display='none';
+  document.getElementById('success').style.display='block';
+}
+
+function resetForm() {
+  document.getElementById('success').style.display='none';
+  document.getElementById('form-view').style.display='block';
+  clearPad();
+}
+
+function showToast(m) {
+  const t = document.getElementById('toast');
+  t.textContent = m; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
 }
 </script>
-
 </body>
 </html>
