@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Solar Corona Signature Wall</title>
+<title>Cyber Solar Signature Wall</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -13,18 +13,18 @@
   #flame-canvas { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
 
   #title { position: fixed; top: 28px; left: 50%; transform: translateX(-50%); z-index: 10; text-align: center; pointer-events: none; }
-  #title h1 { font-family: 'Orbitron', monospace; font-size: 18px; letter-spacing: 0.4em; color: #00e5ff; text-shadow: 0 0 15px rgba(0,229,255,0.6); }
+  #title h1 { font-family: 'Orbitron', monospace; font-size: 18px; letter-spacing: 0.4em; color: #1a6cff; text-shadow: 0 0 15px rgba(26,108,255,0.4); }
   
-  #counter { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 10; font-family: 'Orbitron', monospace; font-size: 10px; color: rgba(0,229,255,0.5); }
+  #counter { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 10; font-family: 'Orbitron', monospace; font-size: 10px; color: rgba(26,108,255,0.5); }
   #counter span { font-size: 18px; color: #fff; }
 
-  #clear-btn { position: fixed; top: 0; right: 0; width: 50px; height: 50px; z-index: 100; background: transparent; border: none; cursor: crosshair; }
+  #clear-btn { position: fixed; top: 0; right: 0; width: 50px; height: 50px; z-index: 100; background: transparent; border: none; }
 </style>
 </head>
 <body>
 <canvas id="flame-canvas"></canvas>
 <canvas id="sphere-canvas"></canvas>
-<div id="title"><h1>SOLAR CORE SYSTEM</h1></div>
+<div id="title"><h1>CYBER CORE SYSTEM</h1></div>
 <div id="counter"><span id="sig-count">0</span>&nbsp;ACTIVE NODES</div>
 <button id="clear-btn"></button>
 
@@ -61,7 +61,7 @@ function buildGlowCanvas(img) {
   const rctx = raw.getContext('2d'); rctx.drawImage(img, 0, 0, GW, GH);
   const idata = rctx.getImageData(0, 0, GW, GH), d = idata.data;
   for (let i = 0; i < d.length; i += 4) {
-    d[i] = 130; d[i+1] = 230; d[i+2] = 255; // Slightly brighter blue for signatures
+    d[i] = 100; d[i+1] = 200; d[i+2] = 255;
     d[i+3] = d[i+3] > 40 ? 255 : 0;
   }
   rctx.putImageData(idata, 0, 0);
@@ -98,33 +98,29 @@ function project(fx, fy, fz, currentR) {
   return { sx: cx + rx*sc, sy: cy + ry2*sc, scale: sc, depth: rz2 };
 }
 
-function drawSolarCorona(currentR, now) {
+// Cyber Dark Blue Flame Logic
+function drawCyberFlame(currentR, now) {
   fctx.clearRect(0, 0, W, H);
-  const time = now * 0.0012;
-  
+  const time = now * 0.001;
   fctx.save();
   fctx.globalCompositeOperation = 'screen';
   
-  // Subtle outer flame only
-  const outerEdge = currentR * 1.4;
-  const innerEdge = currentR * 0.98;
-  
-  const g = fctx.createRadialGradient(cx, cy, innerEdge, cx, cy, outerEdge);
-  g.addColorStop(0, 'rgba(0, 0, 0, 0)');          // Totally clear center
-  g.addColorStop(0.1, 'rgba(0, 100, 255, 0.15)'); // Soft inner start
-  g.addColorStop(0.4, 'rgba(0, 200, 255, 0.1)');  // Mid flame transparency
-  g.addColorStop(1, 'rgba(0, 0, 0, 0)');          // Dissipate
+  // Hollow dark blue corona
+  const inner = currentR * 0.98;
+  const outer = currentR * 1.35;
+  const g = fctx.createRadialGradient(cx, cy, inner, cx, cy, outer);
+  g.addColorStop(0, 'rgba(0, 0, 0, 0)');
+  g.addColorStop(0.1, 'rgba(0, 26, 77, 0.4)');  // Cyber Dark Blue
+  g.addColorStop(0.5, 'rgba(0, 51, 102, 0.2)'); // Electric Deep Blue
+  g.addColorStop(1, 'rgba(0, 0, 0, 0)');
   
   fctx.fillStyle = g;
-  
-  // Lower burning animation - fewer arcs, slower movement
   for(let i=0; i<2; i++) {
-    const drift = Math.sin(time + i) * 8;
+    const drift = Math.sin(time + i) * 6;
     fctx.beginPath();
-    fctx.arc(cx, cy, outerEdge + drift, 0, Math.PI * 2);
+    fctx.arc(cx, cy, outer + drift, 0, Math.PI * 2);
     fctx.fill();
   }
-  
   fctx.restore();
 }
 
@@ -138,12 +134,12 @@ function animate() {
 
   let scaleMultiplier = 1;
   if (pulseState === "expanding") {
-    pulseT += 0.0033; // Exactly 5 seconds at 60fps
+    pulseT += 0.0033; // 5 Seconds
     const ease = pulseT * pulseT * (3 - 2 * pulseT);
     scaleMultiplier = 1 + ease * 4; 
     if (pulseT >= 1) pulseState = "shrinking";
   } else if (pulseState === "shrinking") {
-    pulseT -= 0.006; // Returns slightly faster to look snappy
+    pulseT -= 0.006; 
     const ease = pulseT * pulseT * (3 - 2 * pulseT);
     scaleMultiplier = 1 + ease * 4;
     if (pulseT <= 0) {
@@ -153,7 +149,7 @@ function animate() {
   }
 
   const currentR = baseR * scaleMultiplier;
-  drawSolarCorona(currentR, now);
+  drawCyberFlame(currentR, now);
 
   ctx.clearRect(0, 0, W, H);
   if (!isDragging) rotY += 0.0015;
@@ -163,17 +159,19 @@ function animate() {
   sorted.forEach(item => {
     const { s, sx, sy, scale, depth } = item;
     
-    // Smooth size interpolation: grows when sphere expands, but capped for screen fill
-    const baseWidth = baseR * 0.52;
-    const currentWidth = baseWidth * scale * (1 + (scaleMultiplier - 1) * 0.15);
-    
-    const sw = currentWidth;
+    // CONCURRENT SCALING: 
+    // Signatures now shrink/grow in direct ratio to currentR
+    // 0.52 is base size. We multiply it by (1 / scaleMultiplier) 
+    // to ensure they don't look massive when they hit the edges.
+    const adaptiveScale = 1 + (scaleMultiplier - 1) * 0.15;
+    const sw = (baseR * 0.52) * scale * adaptiveScale;
     const sh = sw * (120/320);
+    
     const depthFade = (depth + currentR) / (2 * currentR);
     
     ctx.save();
-    // Fade out slightly when expanded so they don't overlap too harshly
-    ctx.globalAlpha = depthFade * (1 - (scaleMultiplier - 1) * 0.1);
+    // Fade signatures slightly during expansion to maintain visibility
+    ctx.globalAlpha = depthFade * (pulseState === "idle" ? 1 : 0.85);
     ctx.globalCompositeOperation = 'screen';
     ctx.drawImage(s.glowCanvas, sx - sw/2, sy - sh/2, sw, sh);
     ctx.restore();
@@ -182,7 +180,6 @@ function animate() {
   requestAnimationFrame(animate);
 }
 
-// Interaction
 canvas.addEventListener('mousedown', e => { isDragging = true; lastX = e.clientX; });
 window.addEventListener('mouseup', () => isDragging = false);
 window.addEventListener('mousemove', e => { if (isDragging) { rotY += (e.clientX - lastX) * 0.008; lastX = e.clientX; } });
