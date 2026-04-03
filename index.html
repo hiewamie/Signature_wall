@@ -3,18 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cyber Warp 3D Perspective</title>
+<title>3D Hyper-Expansion Sphere</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   
   body { 
-    background: radial-gradient(circle at center, #00081a 0%, #00040d 40%, #000000 100%);
-    color: #fff; 
-    font-family: sans-serif; 
-    overflow: hidden; 
-    height: 100vh; 
-    width: 100vw; 
+    background: radial-gradient(circle at center, #00081a 0%, #00040d 45%, #000000 100%);
+    color: #fff; font-family: sans-serif; overflow: hidden; height: 100vh; width: 100vw; 
   }
 
   #sphere-canvas { position: fixed; inset: 0; z-index: 2; }
@@ -22,11 +18,11 @@
 
   #title { position: fixed; top: 28px; left: 50%; transform: translateX(-50%); z-index: 10; text-align: center; pointer-events: none; }
   #title h1 { 
-    font-family: 'Orbitron', monospace; font-size: 18px; letter-spacing: 0.4em; 
+    font-family: 'Orbitron', monospace; font-size: 16px; letter-spacing: 0.5em; 
     color: #1a6cff; text-shadow: 0 0 15px rgba(26,108,255,0.4); 
   }
   
-  #counter { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 10; font-family: 'Orbitron', monospace; font-size: 10px; color: rgba(26,108,255,0.5); }
+  #counter { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 10; font-family: 'Orbitron', monospace; font-size: 10px; color: rgba(26,108,255,0.4); }
   #counter span { font-size: 18px; color: #fff; }
 
   #clear-btn { position: fixed; top: 0; right: 0; width: 50px; height: 50px; z-index: 100; background: transparent; border: none; }
@@ -35,8 +31,8 @@
 <body>
 <canvas id="flame-canvas"></canvas>
 <canvas id="sphere-canvas"></canvas>
-<div id="title"><h1>CYBER CORE SYSTEM</h1></div>
-<div id="counter"><span id="sig-count">0</span>&nbsp;ACTIVE NODES</div>
+<div id="title"><h1>CORE EXPANSION PROTOCOL</h1></div>
+<div id="counter"><span id="sig-count">0</span>&nbsp;NODES ONLINE</div>
 <button id="clear-btn"></button>
 
 <script>
@@ -53,8 +49,7 @@ function resize() {
   W = canvas.width = fcanvas.width = window.innerWidth;
   H = canvas.height = fcanvas.height = window.innerHeight;
   cx = W / 2; cy = H / 2;
-  // baseR is the idle sphere size
-  baseR = Math.min(W, H) * 0.3;
+  baseR = Math.min(W, H) * 0.28; // Smaller base to allow room for massive expansion
 }
 window.addEventListener('resize', resize);
 resize();
@@ -73,7 +68,7 @@ function buildGlowCanvas(img) {
   const rctx = raw.getContext('2d'); rctx.drawImage(img, 0, 0, GW, GH);
   const idata = rctx.getImageData(0, 0, GW, GH), d = idata.data;
   for (let i = 0; i < d.length; i += 4) {
-    d[i] = 100; d[i+1] = 200; d[i+2] = 255;
+    d[i] = 100; d[i+1] = 180; d[i+2] = 255;
     d[i+3] = d[i+3] > 40 ? 255 : 0;
   }
   rctx.putImageData(idata, 0, 0);
@@ -87,22 +82,12 @@ function buildGlowCanvas(img) {
 function fibonacciPos(index, total) {
   const golden = Math.PI * (3 - Math.sqrt(5));
   const yRaw = 1 - (index / (total - 1 || 1)) * 2;
-  const y = yRaw * 0.70; 
+  const y = yRaw * 0.70; // Constraint: No signatures at poles
   const r = Math.sqrt(1 - y * y);
   const theta = golden * index;
   return { x: r * Math.cos(theta), y: y, z: r * Math.sin(theta) };
 }
 
-function repositionAll() {
-  signatures.forEach((s, i) => {
-    const p = fibonacciPos(i, signatures.length);
-    s.fx = p.x; s.fy = p.y; s.fz = p.z;
-  });
-}
-
-/** * PERSPECTIVE LOGIC
- * We use a tighter FOV to make depth changes more dramatic.
- */
 function project(fx, fy, fz, currentR) {
   let x = fx * currentR, y = fy * currentR, z = fz * currentR;
   const cY = Math.cos(rotY), sY = Math.sin(rotY), cX = Math.cos(rotX), sX = Math.sin(rotX);
@@ -110,8 +95,8 @@ function project(fx, fy, fz, currentR) {
   let rx = x*cY - z*sY, rz = x*sY + z*cY;
   let ry2 = y*cX - rz*sX, rz2 = y*sX + rz*cX;
   
-  // Lower FOV = More aggressive zoom as it approaches the viewer
-  const fov = 500; 
+  // Tight FOV (400) creates a massive "zoom" effect for nearby objects
+  const fov = 400; 
   const sc = fov / (fov + rz2); 
   
   return { sx: cx + rx*sc, sy: cy + ry2*sc, scale: sc, depth: rz2 };
@@ -123,12 +108,13 @@ function drawCyberFlame(currentR, now, easeFactor) {
   fctx.save();
   fctx.globalCompositeOperation = 'screen';
   
-  const flameAlpha = 0.3 * (1 - easeFactor * 0.8);
-  const outer = currentR * (1.2 + easeFactor * 1.5);
+  // Flame stretches and fades out as the sphere expands
+  const flameAlpha = 0.35 * (1 - easeFactor * 0.85);
+  const outer = currentR * (1.2 + easeFactor * 2);
   
-  const g = fctx.createRadialGradient(cx, cy, currentR * 0.9, cx, cy, outer);
+  const g = fctx.createRadialGradient(cx, cy, currentR * 0.85, cx, cy, outer);
   g.addColorStop(0, 'rgba(0, 0, 0, 0)');
-  g.addColorStop(0.3, `rgba(0, 20, 70, ${flameAlpha})`);
+  g.addColorStop(0.2, `rgba(0, 20, 80, ${flameAlpha})`);
   g.addColorStop(1, 'rgba(0, 0, 0, 0)');
   
   fctx.fillStyle = g;
@@ -146,7 +132,7 @@ function animate() {
 
   let easeFactor = 0;
   if (pulseState === "expanding") {
-    pulseT += 0.0033; 
+    pulseT += 0.0033; // 5 Seconds
     easeFactor = pulseT * pulseT * (3 - 2 * pulseT);
     if (pulseT >= 1) pulseState = "shrinking";
   } else if (pulseState === "shrinking") {
@@ -158,37 +144,38 @@ function animate() {
     }
   }
 
-  // Sphere physically moves toward screen
-  const scaleMultiplier = 1 + easeFactor * 5;
+  // The radius expands by up to 6x
+  const scaleMultiplier = 1 + easeFactor * 5.5;
   const currentR = baseR * scaleMultiplier;
   
-  // Rotation speeds up during expansion
-  const rotationSpeed = 0.0015 + (easeFactor * 0.03);
+  // Rotation velocity increases 10x during expansion
+  const rotationSpeed = 0.0015 + (easeFactor * 0.02);
   if (!isDragging) rotY += rotationSpeed;
 
   drawCyberFlame(currentR, now, easeFactor);
 
   ctx.clearRect(0, 0, W, H);
 
-  const sorted = signatures.map(s => ({ s, ...project(s.fx, s.fy, s.fz, currentR) })).sort((a,b) => a.depth - b.depth);
+  // Sorting is CRITICAL: Front items must be drawn last to overlap back items
+  const projected = signatures.map(s => ({ s, ...project(s.fx, s.fy, s.fz, currentR) }));
+  const sorted = projected.sort((a,b) => a.depth - b.depth);
   
   sorted.forEach(item => {
     const { s, sx, sy, scale, depth } = item;
     
-    // SCALE-DRIVEN SIZE:
-    // The 'scale' from the projection is used directly. 
-    // If it's in front, 'scale' is high, making it look much bigger.
-    const baseWidth = baseR * 0.5;
+    // PERSPECTIVE SIZE: 
+    // The width is directly proportional to 'scale'.
+    // Front items (negative depth) will have a scale > 1 and look huge.
+    const baseWidth = baseR * 0.55; 
     const sw = baseWidth * scale;
     const sh = sw * (120/320);
     
-    // Opacity: Front items are bright, back items fade into darkness
-    // We also fade everything out slightly as the sphere engulfs the screen
-    const visibility = (1 - easeFactor * 0.4);
-    const depthFade = (depth + currentR) / (2 * currentR);
+    // Near items are fully opaque, far items fade out
+    const depthAlpha = (depth + currentR) / (2 * currentR);
+    const pulseFade = (1 - easeFactor * 0.4); // Global fade as they fill screen
     
     ctx.save();
-    ctx.globalAlpha = Math.max(0, depthFade * visibility);
+    ctx.globalAlpha = Math.max(0, depthAlpha * pulseFade);
     ctx.globalCompositeOperation = 'screen';
     ctx.drawImage(s.glowCanvas, sx - sw/2, sy - sh/2, sw, sh);
     ctx.restore();
@@ -197,7 +184,7 @@ function animate() {
   requestAnimationFrame(animate);
 }
 
-// Controls
+// User Controls
 canvas.addEventListener('mousedown', e => { isDragging = true; lastX = e.clientX; });
 window.addEventListener('mouseup', () => isDragging = false);
 window.addEventListener('mousemove', e => { if (isDragging) { rotY += (e.clientX - lastX) * 0.008; lastX = e.clientX; } });
@@ -209,7 +196,11 @@ async function handleNewRow(row) {
   img.crossOrigin = "anonymous";
   img.onload = () => {
     signatures.push({ glowCanvas: buildGlowCanvas(img), fx:0, fy:0, fz:1 });
-    repositionAll();
+    // Force recalculate positions
+    signatures.forEach((s, i) => {
+      const p = fibonacciPos(i, signatures.length);
+      s.fx = p.x; s.fy = p.y; s.fz = p.z;
+    });
     document.getElementById('sig-count').textContent = signatures.length;
   };
   img.src = row.image_data;
