@@ -34,6 +34,8 @@
   }
 
   #sphere-canvas { position: fixed; inset: 0; z-index: 1; }
+
+  /* Flame glow canvas behind sphere */
   #flame-canvas { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
 
   #title { position: fixed; top: 28px; left: 50%; transform: translateX(-50%); z-index: 10; text-align: center; pointer-events: none; }
@@ -68,7 +70,12 @@
   #btn-cancel { background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.35); border: 1px solid rgba(255,255,255,0.1); }
   #btn-cancel:hover { background: rgba(255,255,255,0.09); }
 
-  #new-sig-overlay { position: fixed; inset: 0; z-index: 20; pointer-events: none; display: flex; align-items: center; justify-content: center; }
+  /* New signature spotlight overlay */
+  #new-sig-overlay {
+    position: fixed; inset: 0; z-index: 20; pointer-events: none;
+    display: flex; align-items: center; justify-content: center;
+  }
+
   .ripple { position: fixed; border-radius: 50%; border: 1.5px solid var(--cyan); pointer-events: none; animation: rippleAnim 1.4s ease-out forwards; z-index: 5; }
   @keyframes rippleAnim { from{width:0;height:0;opacity:0.8;transform:translate(-50%,-50%);}to{width:600px;height:600px;opacity:0;transform:translate(-50%,-50%);} }
 </style>
@@ -95,6 +102,7 @@
 const SUPABASE_URL  = 'https://gpdkcalhqbvztctoofwh.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdwZGtjYWxocWJ2enRjdG9vZndoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxMjIwMTksImV4cCI6MjA5MDY5ODAxOX0.M3B25IWhogS_8hKONXOjcjn4rFaJcBhIYWB77q2Z-Ew';
 
+/* ── Canvas setup ── */
 const canvas = document.getElementById('sphere-canvas');
 const ctx    = canvas.getContext('2d');
 const flameCanvas = document.getElementById('flame-canvas');
@@ -110,6 +118,7 @@ function resize() {
 resize();
 window.addEventListener('resize', resize);
 
+/* ── Glow processor ── */
 const glowCache = new Map();
 function buildGlowCanvas(img) {
   const GW = 320, GH = 120;
@@ -137,7 +146,7 @@ function buildGlowCanvas(img) {
   const gctx = gc.getContext('2d');
   [[9, 0.45],[4, 0.65],[1.5, 0.85],[0, 1]].forEach(([blur, alpha]) => {
     gctx.save();
-    gctx.filter = blur ? `blur(${blur}px)` : 'none';
+    gctx.filter = blur ? blur(${blur}px) : 'none';
     gctx.globalAlpha = alpha;
     gctx.drawImage(raw, 0, 0);
     gctx.restore();
@@ -145,10 +154,12 @@ function buildGlowCanvas(img) {
   return gc;
 }
 
+/* ── Sphere state ── */
 const signatures = [];
 const seenIds    = new Set();
 let rotY = 0, rotX = 0.28, isDragging = false, lastMX = 0, lastMY = 0;
 
+/* ── Fly-in queue ── */
 const flyQueue = [];
 let flyIn = null;
 const FLY_IN_MS = 600, HOLD_MS = 2000, SHRINK_MS = 900;
@@ -168,9 +179,16 @@ function tickFlyIn(now) {
   if (flyIn.phase === 'in') {
     if (elapsed >= FLY_IN_MS) { flyIn.phase = 'hold'; flyIn.t0 = now; }
   } else if (flyIn.phase === 'hold') {
-    if (elapsed >= HOLD_MS) { commitToSphere(flyIn.glowCanvas, flyIn.name); flyIn.phase = 'shrink'; flyIn.t0 = now; }
+    if (elapsed >= HOLD_MS) {
+      commitToSphere(flyIn.glowCanvas, flyIn.name);
+      flyIn.phase = 'shrink'; flyIn.t0 = now;
+    }
   } else if (flyIn.phase === 'shrink') {
-    if (elapsed >= SHRINK_MS) { const s = signatures[signatures.length - 1]; if (s) s.opacity = 1; dequeue(); }
+    if (elapsed >= SHRINK_MS) {
+      const s = signatures[signatures.length - 1];
+      if (s) s.opacity = 1;
+      dequeue();
+    }
   }
 }
 
@@ -186,9 +204,12 @@ function drawFlyIn(now) {
     const p = Math.min(1, elapsed / FLY_IN_MS);
     const ease = 1 - Math.pow(1 - p, 3);
     alpha = ease; scl = 0.2 + 0.8 * ease;
+    /* slight upward drift as it materialises */
     sy = cy + 40 * (1 - ease);
   } else if (flyIn.phase === 'hold') {
-    alpha = 1; scl = 1 + 0.02 * Math.sin(elapsed * 0.005);
+    alpha = 1; scl = 1;
+    /* gentle pulse */
+    scl = 1 + 0.02 * Math.sin(elapsed * 0.005);
   } else if (flyIn.phase === 'shrink') {
     const p = Math.min(1, elapsed / SHRINK_MS);
     const ease = p * p * (3 - 2 * p);
@@ -197,29 +218,42 @@ function drawFlyIn(now) {
     if (s) {
       const proj = project(s.fx, s.fy, s.fz);
       tx = proj.sx; ty = proj.sy;
-      const targetW = sigBaseW() * Math.min(proj.scale, 1.15);
+      const capSc = Math.min(proj.scale, 1.15);
+      const targetW = sigBaseW() * capSc;
       tScl = targetW / BIG_W;
     }
-    sx = cx + (tx - cx) * ease; sy = cy + (ty - cy) * ease; scl = 1 + (tScl - 1) * ease; alpha = 1 - ease * 0.3;
+    sx = cx + (tx - cx) * ease;
+    sy = cy + (ty - cy) * ease;
+    scl = 1 + (tScl - 1) * ease;
+    alpha = 1 - ease * 0.3;
   }
 
+  /* spotlight glow behind the centre signature */
   if (flyIn.phase === 'in' || flyIn.phase === 'hold') {
     const glowR = BIG_W * scl * 0.9;
     const spotAlpha = flyIn.phase === 'hold' ? 0.18 + 0.04 * Math.sin(now * 0.004) : alpha * 0.18;
     const spot = ctx.createRadialGradient(sx, sy, 0, sx, sy, glowR);
-    spot.addColorStop(0, `rgba(0,180,255,${spotAlpha})`);
-    spot.addColorStop(0.5, `rgba(0,80,200,${spotAlpha * 0.4})`);
+    spot.addColorStop(0, rgba(0,180,255,${spotAlpha}));
+    spot.addColorStop(0.5, rgba(0,80,200,${spotAlpha * 0.4}));
     spot.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.save(); ctx.fillStyle = spot; ctx.fillRect(0, 0, W, H); ctx.restore();
+    ctx.save();
+    ctx.fillStyle = spot;
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
   }
 
   const dw = BIG_W * scl, dh = BIG_H * scl;
-  ctx.save(); ctx.globalAlpha = alpha; ctx.globalCompositeOperation = 'screen';
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.globalCompositeOperation = 'screen';
   ctx.drawImage(flyIn.glowCanvas, sx - dw/2, sy - dh/2, dw, dh);
   ctx.restore();
 }
 
+/* ── Sphere helpers ── */
+const SIG_ASPECT = 120 / 320;
 const sigBaseW   = () => R * 0.58;
+
 function project(fx, fy, fz) {
   let x = fx * R, y = fy * R, z = fz * R;
   const cY = Math.cos(rotY), sY = Math.sin(rotY);
@@ -241,7 +275,9 @@ function fibonacciPos(index, total) {
 
 function repositionAll() {
   const total = signatures.length;
-  signatures.forEach((s, i) => { const p = fibonacciPos(i, total); s.fx = p.x; s.fy = p.y; s.fz = p.z; });
+  signatures.forEach((s, i) => {
+    const p = fibonacciPos(i, total); s.fx = p.x; s.fy = p.y; s.fz = p.z;
+  });
 }
 
 function commitToSphere(glowCanvas, name) {
@@ -250,6 +286,7 @@ function commitToSphere(glowCanvas, name) {
   document.getElementById('sig-count').textContent = signatures.length;
 }
 
+/* ── Drag ── */
 canvas.addEventListener('mousedown',  e => { isDragging = true; lastMX = e.clientX; lastMY = e.clientY; });
 canvas.addEventListener('mousemove',  e => { if (!isDragging) return; rotY += (e.clientX - lastMX)*0.005; rotX += (e.clientY - lastMY)*0.003; lastMX = e.clientX; lastMY = e.clientY; });
 canvas.addEventListener('mouseup',    () => isDragging = false);
@@ -258,41 +295,141 @@ canvas.addEventListener('touchstart', e => { isDragging = true; lastMX = e.touch
 canvas.addEventListener('touchmove',  e => { if (!isDragging) return; e.preventDefault(); rotY += (e.touches[0].clientX - lastMX)*0.005; rotX += (e.touches[0].clientY - lastMY)*0.003; lastMX = e.touches[0].clientX; lastMY = e.touches[0].clientY; }, { passive: false });
 canvas.addEventListener('touchend',   () => isDragging = false);
 
-/* Removed triangle/rings logic from flame effect */
+/* ══════════════════════════════════════════════════════════
+   BLUE FLAME / GLOW EFFECT
+   Drawn on fctx (behind signatures) each frame
+══════════════════════════════════════════════════════════ */
+let flameTime = 0;
+
 function drawFlame(now) {
   fctx.clearRect(0, 0, W, H);
+
   const t = now * 0.001;
 
-  /* Outermost soft blue halo */
+  /* ── 1. Outermost soft blue halo ── */
   const halo = fctx.createRadialGradient(cx, cy, R * 0.6, cx, cy, R * 1.9);
   halo.addColorStop(0,   'rgba(0,100,255,0.0)');
   halo.addColorStop(0.4, 'rgba(0,120,255,0.06)');
   halo.addColorStop(0.75,'rgba(0,180,255,0.12)');
   halo.addColorStop(0.88,'rgba(0,220,255,0.22)');
+  halo.addColorStop(0.95,'rgba(0,200,255,0.10)');
   halo.addColorStop(1,   'rgba(0,0,0,0)');
-  fctx.fillStyle = halo; fctx.fillRect(0, 0, W, H);
+  fctx.fillStyle = halo;
+  fctx.fillRect(0, 0, W, H);
 
-  /* Hot-core bright ring */
+  /* ── 2. Hot-core bright ring at R ── */
   const ring = fctx.createRadialGradient(cx, cy, R * 0.80, cx, cy, R * 1.18);
   ring.addColorStop(0,    'rgba(0,180,255,0.0)');
-  ring.addColorStop(0.60, 'rgba(100,230,255,0.45)');
-  ring.addColorStop(0.75, 'rgba(180,240,255,0.65)');
+  ring.addColorStop(0.35, 'rgba(0,210,255,0.18)');
+  ring.addColorStop(0.60, 'rgba(100,230,255,0.55)');
+  ring.addColorStop(0.75, 'rgba(180,240,255,0.75)');
+  ring.addColorStop(0.85, 'rgba(100,210,255,0.40)');
   ring.addColorStop(1,    'rgba(0,120,255,0.0)');
-  fctx.fillStyle = ring; fctx.fillRect(0, 0, W, H);
+  fctx.fillStyle = ring;
+  fctx.fillRect(0, 0, W, H);
 
-  /* Inner sphere ambient glow */
+  /* ── 3. Animated flame tongues (arc segments) ── */
+  const TONGUES = 18;
+  for (let i = 0; i < TONGUES; i++) {
+    const base  = (i / TONGUES) * Math.PI * 2;
+    const drift = Math.sin(t * 1.3 + i * 0.7) * 0.12;
+    const angle = base + drift;
+    const len   = R * (0.12 + 0.10 * Math.abs(Math.sin(t * 2.1 + i * 1.4)));
+    const inner = R * 0.92;
+    const outer = inner + len;
+    const wid   = 0.09 + 0.05 * Math.abs(Math.sin(t + i));
+
+    const x1 = cx + Math.cos(angle - wid) * inner;
+    const y1 = cy + Math.sin(angle - wid) * inner;
+    const x2 = cx + Math.cos(angle + wid) * inner;
+    const y2 = cy + Math.sin(angle + wid) * inner;
+    const tx  = cx + Math.cos(angle) * outer;
+    const ty  = cy + Math.sin(angle) * outer;
+
+    const fl = fctx.createLinearGradient(
+      cx + Math.cos(angle) * inner, cy + Math.sin(angle) * inner,
+      tx, ty
+    );
+    const brightness = 0.5 + 0.5 * Math.abs(Math.sin(t * 1.7 + i));
+    fl.addColorStop(0, rgba(80,200,255,${0.55 * brightness}));
+    fl.addColorStop(0.5, rgba(0,160,255,${0.30 * brightness}));
+    fl.addColorStop(1,   'rgba(0,80,200,0)');
+
+    fctx.beginPath();
+    fctx.moveTo(x1, y1);
+    fctx.quadraticCurveTo(
+      cx + Math.cos(angle) * (inner + len * 0.5 + 10), cy + Math.sin(angle) * (inner + len * 0.5 + 10),
+      tx, ty
+    );
+    fctx.lineTo(x2, y2);
+    fctx.closePath();
+    fctx.fillStyle = fl;
+    fctx.fill();
+  }
+
+  /* ── 4. Second pass – slow large flame lobes ── */
+  const LOBES = 7;
+  for (let i = 0; i < LOBES; i++) {
+    const base  = (i / LOBES) * Math.PI * 2 + t * 0.18;
+    const drift = Math.sin(t * 0.8 + i * 1.1) * 0.2;
+    const angle = base + drift;
+    const len   = R * (0.22 + 0.14 * Math.abs(Math.sin(t * 0.6 + i * 2.3)));
+    const inner = R * 0.85;
+    const outer = inner + len;
+
+    const lobe = fctx.createRadialGradient(
+      cx + Math.cos(angle) * (inner + len * 0.4),
+      cy + Math.sin(angle) * (inner + len * 0.4),
+      0,
+      cx, cy, outer
+    );
+    const a = 0.3 + 0.2 * Math.abs(Math.sin(t * 0.9 + i));
+    lobe.addColorStop(0,   rgba(0,180,255,${a}));
+    lobe.addColorStop(0.5, rgba(0,120,255,${a * 0.5}));
+    lobe.addColorStop(1,   'rgba(0,60,180,0)');
+
+    fctx.beginPath();
+    fctx.arc(
+      cx + Math.cos(angle) * (inner + len * 0.5),
+      cy + Math.sin(angle) * (inner + len * 0.5),
+      len * 0.55, 0, Math.PI * 2
+    );
+    fctx.fillStyle = lobe;
+    fctx.fill();
+  }
+
+  /* ── 5. Concentric pulsing rings (like reference image) ── */
+  const RINGS = 4;
+  for (let i = 0; i < RINGS; i++) {
+    const rr    = R * (1.0 + i * 0.18);
+    const pulse = 0.5 + 0.5 * Math.sin(t * 2.5 - i * 1.2);
+    const alpha = (0.35 - i * 0.07) * pulse;
+    if (alpha <= 0) continue;
+    fctx.beginPath();
+    fctx.arc(cx, cy, rr, 0, Math.PI * 2);
+    fctx.strokeStyle = rgba(0,200,255,${alpha});
+    fctx.lineWidth   = 2.5 - i * 0.4;
+    fctx.stroke();
+  }
+
+  /* ── 6. Inner sphere ambient glow (dark centre, bright edge) ── */
   const inner = fctx.createRadialGradient(cx, cy, 0, cx, cy, R * 0.98);
   inner.addColorStop(0,   'rgba(5,15,60,0.0)');
+  inner.addColorStop(0.6, 'rgba(0,60,160,0.08)');
   inner.addColorStop(0.85,'rgba(0,140,255,0.15)');
   inner.addColorStop(1,   'rgba(0,200,255,0.0)');
-  fctx.fillStyle = inner; fctx.beginPath(); fctx.arc(cx, cy, R * 0.98, 0, Math.PI * 2); fctx.fill();
+  fctx.fillStyle = inner;
+  fctx.beginPath();
+  fctx.arc(cx, cy, R * 0.98, 0, Math.PI * 2);
+  fctx.fill();
 }
 
+/* ── Sphere wireframe ── */
 function drawWireframe() {
   ctx.save();
-  /* Back hemisphere - very faint */
-  ctx.lineWidth = 0.5;
-  ctx.strokeStyle = 'rgba(0,180,255,0.03)';
+  /* Back hemisphere first (dim) */
+  ctx.lineWidth = 0.7;
+  ctx.strokeStyle = 'rgba(0,180,255,0.06)';
   for (let i = 0; i <= 8; i++) {
     const phi = (i / 8) * Math.PI;
     ctx.beginPath(); let first = true;
@@ -303,9 +440,19 @@ function drawWireframe() {
     }
     ctx.stroke();
   }
-  /* Front hemisphere - subtle but clear */
-  ctx.lineWidth = 0.8;
-  ctx.strokeStyle = 'rgba(0,220,255,0.08)';
+  for (let i = 0; i < 12; i++) {
+    const theta = (i / 12) * Math.PI * 2;
+    ctx.beginPath(); let first = true;
+    for (let j = 0; j <= 40; j++) {
+      const phi = (j / 40) * Math.PI;
+      const p = project(Math.sin(phi)*Math.cos(theta), Math.cos(phi), Math.sin(phi)*Math.sin(theta));
+      if (p.depth <= 0) { if (first) { ctx.moveTo(p.sx, p.sy); first = false; } else ctx.lineTo(p.sx, p.sy); } else first = true;
+    }
+    ctx.stroke();
+  }
+  /* Front hemisphere (brighter) */
+  ctx.lineWidth = 1.1;
+  ctx.strokeStyle = 'rgba(0,220,255,0.18)';
   for (let i = 0; i <= 8; i++) {
     const phi = (i / 8) * Math.PI;
     ctx.beginPath(); let first = true;
@@ -316,43 +463,79 @@ function drawWireframe() {
     }
     ctx.stroke();
   }
+  for (let i = 0; i < 12; i++) {
+    const theta = (i / 12) * Math.PI * 2;
+    ctx.beginPath(); let first = true;
+    for (let j = 0; j <= 40; j++) {
+      const phi = (j / 40) * Math.PI;
+      const p = project(Math.sin(phi)*Math.cos(theta), Math.cos(phi), Math.sin(phi)*Math.sin(theta));
+      if (p.depth > 0) { if (first) { ctx.moveTo(p.sx, p.sy); first = false; } else ctx.lineTo(p.sx, p.sy); } else first = true;
+    }
+    ctx.stroke();
+  }
   ctx.restore();
 }
 
+/* ── Main render loop ── */
 function animate(now) {
   ctx.clearRect(0, 0, W, H);
   if (!isDragging) rotY += 0.003;
+
+  /* Draw flame effect on its own canvas */
   drawFlame(now);
+
+  /* Faint ambient fill */
   const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 1.2);
-  g.addColorStop(0, 'rgba(10,40,120,0.04)'); g.addColorStop(1, 'transparent');
+  g.addColorStop(0, 'rgba(10,40,120,0.04)');
+  g.addColorStop(0.6, 'rgba(0,100,200,0.02)');
+  g.addColorStop(1, 'transparent');
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
   drawWireframe();
   tickFlyIn(now);
 
+  /* Draw sphere signatures */
   ctx.save();
-  ctx.beginPath(); ctx.arc(cx, cy, R * 1.08, 0, Math.PI * 2); ctx.clip();
-  const projected = signatures.map(s => { const p = project(s.fx, s.fy, s.fz); return { s, ...p }; }).sort((a, b) => a.depth - b.depth);
+  ctx.beginPath();
+  ctx.arc(cx, cy, R * 1.08, 0, Math.PI * 2);
+  ctx.clip();
+
+  const projected = signatures.map(s => {
+    const p = project(s.fx, s.fy, s.fz);
+    return { s, ...p };
+  }).sort((a, b) => a.depth - b.depth);
+
   for (const item of projected) {
     const { s, sx, sy, scale, depth } = item;
-    if (!s.glowCanvas || (flyIn && flyIn.phase === 'shrink' && s === signatures[signatures.length - 1])) continue;
+    if (!s.glowCanvas) continue;
+    if (flyIn && flyIn.phase === 'shrink' && s === signatures[signatures.length - 1]) continue;
     if (s.opacity < 1) s.opacity = Math.min(1, s.opacity + 0.025);
     const depthNorm = (depth + R) / (2 * R);
     const depthFade = 0.08 + 0.92 * Math.pow(depthNorm, 1.3);
-    const sw = sigBaseW() * Math.min(scale, 1.15), sh = sw * (120/320);
-    ctx.save(); ctx.globalAlpha = depthFade * s.opacity; ctx.globalCompositeOperation = 'screen'; ctx.drawImage(s.glowCanvas, sx - sw/2, sy - sh/2, sw, sh); ctx.restore();
+    const capSc = Math.min(scale, 1.15);
+    const sw = sigBaseW() * capSc, sh = sw * SIG_ASPECT;
+    ctx.save();
+    ctx.globalAlpha = depthFade * s.opacity;
+    ctx.globalCompositeOperation = 'screen';
+    ctx.drawImage(s.glowCanvas, sx - sw/2, sy - sh/2, sw, sh);
+    ctx.restore();
   }
   ctx.restore();
+
   drawFlyIn(now);
   requestAnimationFrame(animate);
 }
 requestAnimationFrame(animate);
 
+/* ── Ripple ── */
 function spawnRipple() {
   const el = document.createElement('div'); el.className = 'ripple';
   el.style.left = cx + 'px'; el.style.top = cy + 'px';
-  document.body.appendChild(el); setTimeout(() => el.remove(), 1500);
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1500);
 }
 
+/* ── Data layer ── */
 function addSilently(row) {
   seenIds.add(row.id);
   const img = new Image();
@@ -368,7 +551,8 @@ function addSilently(row) {
 
 function handleNewRow(row) {
   if (!row || seenIds.has(row.id)) return;
-  seenIds.add(row.id); spawnRipple();
+  seenIds.add(row.id);
+  spawnRipple();
   const img = new Image();
   img.onload = () => {
     const key = row.id;
@@ -380,17 +564,17 @@ function handleNewRow(row) {
 
 async function loadExisting() {
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/signatures?select=*&order=created_at.asc`, {
-      headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` }
+    const res = await fetch(${SUPABASE_URL}/rest/v1/signatures?select=*&order=created_at.asc, {
+      headers: { 'apikey': SUPABASE_ANON, 'Authorization': Bearer ${SUPABASE_ANON} }
     });
     const data = await res.json();
     if (Array.isArray(data)) data.forEach(row => addSilently(row));
-  } catch(e) {}
+  } catch(e) { console.error('loadExisting', e); }
 }
 
 let heartbeatInterval = null, realtimeRef = 1;
 function subscribeRealtime() {
-  const ws = new WebSocket(`wss://gpdkcalhqbvztctoofwh.supabase.co/realtime/v1/websocket?apikey=${SUPABASE_ANON}&vsn=1.0.0`);
+  const ws = new WebSocket(wss://gpdkcalhqbvztctoofwh.supabase.co/realtime/v1/websocket?apikey=${SUPABASE_ANON}&vsn=1.0.0);
   ws.onopen = () => {
     ws.send(JSON.stringify({ topic: 'realtime:public:signatures', event: 'phx_join', payload: { config: { broadcast: { self: false }, presence: { key: '' }, postgres_changes: [{ event: 'INSERT', schema: 'public', table: 'signatures' }] } }, ref: String(realtimeRef++) }));
     heartbeatInterval = setInterval(() => ws.send(JSON.stringify({ topic: 'phoenix', event: 'heartbeat', payload: {}, ref: String(realtimeRef++) })), 25000);
@@ -399,34 +583,206 @@ function subscribeRealtime() {
     let msg; try { msg = JSON.parse(e.data); } catch { return; }
     if ((msg.event === 'INSERT' || msg.event === 'postgres_changes') && msg.payload?.data?.record) handleNewRow(msg.payload.data.record);
   };
+  ws.onerror = err => console.warn('[RT]', err);
   ws.onclose = () => { clearInterval(heartbeatInterval); setTimeout(subscribeRealtime, 3000); };
 }
 
 async function pollForNew() {
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/signatures?select=*&order=created_at.desc&limit=10`, {
-      headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` }
+    const res = await fetch(${SUPABASE_URL}/rest/v1/signatures?select=*&order=created_at.desc&limit=10, {
+      headers: { 'apikey': SUPABASE_ANON, 'Authorization': Bearer ${SUPABASE_ANON} }
     });
     const data = await res.json();
     if (Array.isArray(data)) [...data].reverse().forEach(row => { if (!seenIds.has(row.id)) handleNewRow(row); });
   } catch(e) {}
 }
 
-document.getElementById('clear-btn').addEventListener('click', () => document.getElementById('confirm-overlay').classList.add('show'));
-document.getElementById('btn-cancel').addEventListener('click', () => document.getElementById('confirm-overlay').classList.remove('show'));
+/* ── Clear ── */
+document.getElementById('clear-btn').addEventListener('click', () => {
+  document.getElementById('confirm-overlay').classList.add('show');
+});
+document.getElementById('btn-cancel').addEventListener('click', () => {
+  document.getElementById('confirm-overlay').classList.remove('show');
+});
 document.getElementById('btn-confirm').addEventListener('click', async () => {
   document.getElementById('confirm-overlay').classList.remove('show');
-  signatures.length = 0; glowCache.clear(); seenIds.clear(); flyQueue.length = 0; flyIn = null;
+  signatures.length = 0; glowCache.clear(); seenIds.clear();
+  flyQueue.length = 0; flyIn = null;
   document.getElementById('sig-count').textContent = '0';
   try {
-    await fetch(`${SUPABASE_URL}/rest/v1/signatures?id=neq.00000000-0000-0000-0000-000000000000`, {
+    await fetch(${SUPABASE_URL}/rest/v1/signatures?id=neq.00000000-0000-0000-0000-000000000000, {
       method: 'DELETE',
-      headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }
+      headers: { 'apikey': SUPABASE_ANON, 'Authorization': Bearer ${SUPABASE_ANON}, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }
     });
-  } catch(e) {}
+  } catch(e) { console.warn('clear error', e); }
 });
 
 loadExisting().then(() => { subscribeRealtime(); setInterval(pollForNew, 5000); });
+</script>
+
+<style>
+#mascot-wrap {
+  position: fixed; bottom: 0; z-index: 50; pointer-events: none;
+  width: 320px; height: 420px; transition: left 0s, right 0s;
+}
+#mascot-wrap.side-left  { left: 0; right: auto; }
+#mascot-wrap.side-right { right: 0; left: auto; }
+#mascot-img {
+  position: absolute; bottom: 0; width: 320px;
+  filter:
+    drop-shadow(-12px 0 35px rgba(0,229,255,0.45))
+    drop-shadow(0 -8px 25px rgba(100,40,255,0.30))
+    drop-shadow(0 20px 18px rgba(0,0,0,0.7));
+  transform-origin: bottom center;
+  will-change: transform;
+}
+#mascot-wrap.side-left  #mascot-img { left: 0; }
+#mascot-wrap.side-right #mascot-img { right: 0; }
+#mascot-bubble {
+  position: absolute; top: 30px;
+  background: rgba(2,10,28,0.93);
+  border: 1.5px solid rgba(0,229,255,0.55);
+  border-radius: 14px; padding: 10px 20px;
+  font-family: 'Orbitron', monospace; font-size: 13px;
+  font-weight: 700; color: #00e5ff; white-space: nowrap;
+  text-shadow: 0 0 14px rgba(0,229,255,0.9);
+  box-shadow: 0 0 22px rgba(0,229,255,0.18), inset 0 0 10px rgba(0,229,255,0.06);
+  opacity: 0; transform: scale(0.8) translateY(8px);
+  transition: opacity 0.28s ease, transform 0.28s ease;
+}
+#mascot-wrap.side-left  #mascot-bubble { left: 260px; }
+#mascot-wrap.side-right #mascot-bubble { right: 260px; }
+#mascot-bubble.show { opacity: 1; transform: scale(1) translateY(0); }
+#mascot-bubble::after {
+  content: ''; position: absolute; bottom: -9px;
+  border: 9px solid transparent; border-top-color: rgba(0,229,255,0.55);
+  border-bottom: 0;
+}
+#mascot-wrap.side-left  #mascot-bubble::after { left: 20px; }
+#mascot-wrap.side-right #mascot-bubble::after { right: 20px; }
+</style>
+
+<div id="mascot-wrap" class="side-right">
+  <img id="mascot-img"
+    src="662290127_2659513921085983_2892569749052643846_n-removebg-preview.png"
+    alt="mascot" />
+  <div id="mascot-bubble"></div>
+</div>
+
+<script>
+(function(){
+  const wrap   = document.getElementById('mascot-wrap');
+  const img    = document.getElementById('mascot-img');
+  const bubble = document.getElementById('mascot-bubble');
+
+  function tween(from, to, ms, ease, onV, onDone){
+    const t0 = performance.now();
+    (function tick(now){
+      let p = Math.min(1,(now-t0)/ms), e = ease(p);
+      onV(from+(to-from)*e);
+      p < 1 ? requestAnimationFrame(tick) : onDone && onDone();
+    })(t0);
+  }
+  const easeOut = t => 1-Math.pow(1-t,3);
+  const easeIn  = t => t*t*t;
+  const easeIO  = t => t<.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2;
+
+  let side = 'right';
+  let slideX = 0;
+  let skewY  = 0;
+  let bobPhase = 0, bobRAF = null;
+
+  function buildTransform(){
+    if (side === 'left') return scaleX(-1) translateX(${-slideX}px) skewY(${skewY}deg);
+    return translateX(${-slideX}px) skewY(${skewY}deg);
+  }
+  function commit(){ img.style.transform = buildTransform(); }
+
+  function slideTo(px, ms, ease, cb){ const from = slideX; tween(from, px, ms, ease, v=>{ slideX=v; commit(); }, cb); }
+  function skewTo(deg, ms, ease, cb){ const from = skewY; tween(from, deg, ms, ease, v=>{ skewY=v; commit(); }, cb); }
+
+  function startBob(){
+    bobPhase = 0;
+    function tick(){ bobPhase+=0.045; img.style.marginBottom=(Math.sin(bobPhase)*5)+'px'; bobRAF=requestAnimationFrame(tick); }
+    tick();
+  }
+  function stopBob(cb){ cancelAnimationFrame(bobRAF); img.style.marginBottom='0px'; cb&&cb(); }
+
+  function showBubble(txt){ bubble.textContent=txt; bubble.classList.add('show'); }
+  function hideBubble(){ bubble.classList.remove('show'); }
+
+  function setSide(s){ side=s; wrap.className='side-'+s; slideX=0; skewY=0; commit(); }
+
+  function behaviorPeek(nextSide, done){
+    setSide(nextSide);
+    slideTo(90, 550, easeOut, ()=>{
+      skewTo(7, 420, easeIO, ()=>{
+        skewTo(-7, 600, easeIO, ()=>{
+          skewTo(0, 380, easeIO, ()=>{ setTimeout(()=> slideTo(0, 620, easeIn, done), 500); });
+        });
+      });
+    });
+  }
+
+  function behaviorWave(nextSide, done){
+    setSide(nextSide);
+    slideTo(75, 500, easeOut, ()=>{
+      setTimeout(()=>{
+        slideTo(215, 750, easeOut, ()=>{
+          startBob();
+          showBubble('COME JOIN US !! 👋');
+          let n = 0;
+          function wave(){
+            if(n > 6){ skewTo(0,300,easeIO,()=>{ hideBubble(); stopBob(()=>{ setTimeout(()=> slideTo(0,750,easeIn,done),300); }); }); return; }
+            skewTo(n%2===0?4:-4, 200, easeIO, ()=>{ n++; wave(); });
+          }
+          wave();
+        });
+      }, 400);
+    });
+  }
+
+  function behaviorWhisper(nextSide, done){
+    setSide(nextSide);
+    slideTo(65, 800, easeOut, ()=>{
+      let checks = 0;
+      function lookAround(){
+        if(checks >= 4){
+          slideTo(220, 600, easeOut, ()=>{
+            startBob();
+            showBubble('✦ we have free lucky draw ✦');
+            let w = 0;
+            function nervousLook(){
+              if(w > 5){ hideBubble(); stopBob(()=>{ slideTo(0, 800, easeIn, done); }); return; }
+              skewTo(w%2===0?5:-3, 300, easeIO, ()=>{ w++; nervousLook(); });
+            }
+            setTimeout(nervousLook, 600);
+          });
+          return;
+        }
+        skewTo(checks%2===0?6:-6, 380, easeIO, ()=>{ checks++; lookAround(); });
+      }
+      lookAround();
+    });
+  }
+
+  const sequence = [
+    { fn: behaviorWave,    side: 'right' },
+    { fn: behaviorWhisper, side: 'left'  },
+    { fn: behaviorPeek,    side: 'right' },
+    { fn: behaviorPeek,    side: 'left'  },
+    { fn: behaviorWave,    side: 'left'  },
+    { fn: behaviorWhisper, side: 'right' },
+  ];
+  let seqIdx = 0;
+
+  function runNext(){
+    const { fn, side: s } = sequence[seqIdx % sequence.length];
+    seqIdx++;
+    fn(s, () => { setTimeout(runNext, 4000 + Math.random()*4000); });
+  }
+  setTimeout(runNext, 2000);
+})();
 </script>
 </body>
 </html>
