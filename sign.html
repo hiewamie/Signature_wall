@@ -2,76 +2,55 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Signature</title>
 
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400&family=Orbitron:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
-:root {
-  --bg: #02040a;
-  --cyan: #00e5ff;
-}
-
 body {
-  background: var(--bg);
-  color: #fff;
-  font-family: 'Noto Sans SC', sans-serif;
+  background: #02040a;
+  color: white;
+  font-family: 'Orbitron', sans-serif;
   display: flex;
-  align-items: center;
   justify-content: center;
+  align-items: center;
   min-height: 100vh;
 }
 
-/* ambient glow */
+/* glow background */
 body::after {
   content: '';
   position: fixed;
   inset: 0;
-  background: radial-gradient(circle at center,
-    rgba(0,180,255,0.08),
-    transparent 60%);
-  animation: pulse 6s ease-in-out infinite;
+  background: radial-gradient(circle, rgba(0,180,255,0.1), transparent 60%);
+  animation: pulse 6s infinite;
 }
 @keyframes pulse {
-  0%,100% { opacity: .4; }
-  50% { opacity: 1; }
+  0%,100% { opacity: .4 }
+  50% { opacity: 1 }
 }
 
-/* glass card */
+/* card */
 .card {
-  width: 100%;
+  width: 90%;
   max-width: 420px;
-  padding: 28px;
+  padding: 24px;
   border-radius: 18px;
-  background: rgba(10,20,40,0.35);
+  background: rgba(10,20,40,0.4);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(0,200,255,0.15);
-  box-shadow: 0 0 40px rgba(0,150,255,0.1);
+  border: 1px solid rgba(0,200,255,0.2);
   text-align: center;
-}
-
-/* title */
-h1 {
-  font-family: 'Orbitron';
-  font-size: 16px;
-  letter-spacing: .3em;
-  color: var(--cyan);
-  margin-bottom: 6px;
-}
-.sub {
-  font-size: 11px;
-  opacity: .4;
-  margin-bottom: 22px;
 }
 
 /* circular device */
 #pad-wrapper {
-  width: 300px;
-  height: 300px;
-  margin: 0 auto 20px;
+  position: relative;
+  width: min(80vw, 320px);
+  aspect-ratio: 1;
+  margin: 20px auto;
   border-radius: 50%;
 
   background: radial-gradient(circle at 50% 40%, #0a1a2f, #02040a 70%);
@@ -85,21 +64,21 @@ h1 {
   justify-content: center;
 }
 
-/* inner pad */
+/* canvas */
 #signature-pad {
   width: 85%;
   height: 85%;
   border-radius: 12px;
   background: linear-gradient(145deg, #0b223d, #081427);
   box-shadow: inset 0 0 20px rgba(0,180,255,0.2);
+  touch-action: none;
 }
 
 /* hint */
 #pad-hint {
   position: absolute;
-  font-size: 11px;
-  letter-spacing: .2em;
-  color: rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.15);
+  font-size: 12px;
   pointer-events: none;
 }
 
@@ -107,15 +86,15 @@ h1 {
 input {
   width: 100%;
   padding: 12px;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
   border-radius: 6px;
-  border: 1px solid rgba(0,200,255,0.2);
-  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(0,200,255,0.3);
+  background: rgba(255,255,255,0.05);
   color: white;
 }
 
 /* buttons */
-.btn-row {
+.row {
   display: flex;
   gap: 10px;
 }
@@ -124,20 +103,18 @@ button {
   padding: 12px;
   border-radius: 6px;
   border: none;
-  font-family: 'Orbitron';
   cursor: pointer;
 }
 
 .clear {
   background: transparent;
-  border: 1px solid rgba(255,255,255,0.2);
+  border: 1px solid #888;
   color: #aaa;
 }
 
 .submit {
-  background: rgba(0,229,255,0.15);
-  color: var(--cyan);
-  box-shadow: 0 0 20px rgba(0,229,255,0.2);
+  background: rgba(0,229,255,0.2);
+  color: #00e5ff;
 }
 </style>
 </head>
@@ -145,26 +122,22 @@ button {
 <body>
 
 <div class="card">
-  <h1>SIGN</h1>
-  <div class="sub">DRAW YOUR SIGNATURE</div>
+  <h3>SIGN HERE</h3>
 
   <div id="pad-wrapper">
     <canvas id="signature-pad"></canvas>
-    <div id="pad-hint">SIGN HERE</div>
+    <div id="pad-hint">SIGN</div>
   </div>
 
   <input id="name" placeholder="Your name (optional)" />
 
-  <div class="btn-row">
+  <div class="row">
     <button class="clear" onclick="clearPad()">CLEAR</button>
     <button class="submit" onclick="submitSig()">SUBMIT</button>
   </div>
 </div>
 
 <script>
-const SUPABASE_URL = 'YOUR_URL';
-const SUPABASE_KEY = 'YOUR_KEY';
-
 const canvas = document.getElementById('signature-pad');
 const ctx = canvas.getContext('2d');
 
@@ -173,19 +146,25 @@ let lastX = 0;
 let lastY = 0;
 let hasDrawn = false;
 
-/* init */
-function init() {
-  canvas.width = canvas.offsetWidth;
-  canvas.height = canvas.offsetHeight;
+/* 🔥 PERFECT SCALING FIX */
+function resizeCanvas() {
+  const rect = canvas.getBoundingClientRect();
+  const ratio = window.devicePixelRatio || 1;
+
+  canvas.width = rect.width * ratio;
+  canvas.height = rect.height * ratio;
+
+  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
 
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-
   ctx.strokeStyle = '#b8f1ff';
   ctx.shadowColor = 'rgba(0,200,255,0.9)';
   ctx.shadowBlur = 18;
 }
-init();
+
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
 
 /* get position */
 function getPos(e) {
@@ -206,7 +185,7 @@ function start(e) {
   document.getElementById('pad-hint').style.opacity = 0;
 }
 
-/* draw with pressure feel */
+/* draw */
 function draw(e) {
   if (!drawing) return;
 
@@ -230,6 +209,7 @@ function draw(e) {
   hasDrawn = true;
 }
 
+/* end */
 function end() { drawing = false; }
 
 /* events */
@@ -244,32 +224,22 @@ canvas.addEventListener('touchend', end);
 
 /* clear */
 function clearPad() {
-  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
   document.getElementById('pad-hint').style.opacity = 1;
   hasDrawn = false;
 }
 
-/* submit */
-async function submitSig() {
-  if (!hasDrawn) return alert("Please sign first");
+/* submit (dummy) */
+function submitSig() {
+  if (!hasDrawn) {
+    alert("Please sign first");
+    return;
+  }
 
   const img = canvas.toDataURL();
+  console.log(img);
 
-  await fetch(`${SUPABASE_URL}/rest/v1/signatures`, {
-    method: 'POST',
-    headers: {
-      apikey: SUPABASE_KEY,
-      Authorization: `Bearer ${SUPABASE_KEY}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      name: document.getElementById('name').value,
-      image_data: img
-    })
-  });
-
-  alert("Submitted ✨");
-  clearPad();
+  alert("Signature captured ✨");
 }
 </script>
 
