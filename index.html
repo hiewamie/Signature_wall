@@ -18,6 +18,7 @@
     position: fixed; inset: 0; opacity: 0.06; z-index: 0; overflow: hidden;
     font-family: monospace; font-size: 12px; color: var(--cyan); line-height: 1.4;
     letter-spacing: 2px; pointer-events: none; white-space: pre;
+    left: -20px; right: -20px; width: auto;
   }
   #sphere-canvas { position: fixed; inset: 0; z-index: 1; }
   #title { position: fixed; top: 28px; left: 50%; transform: translateX(-50%); z-index: 10; text-align: center; pointer-events: none; }
@@ -76,7 +77,7 @@ const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 const binBg=document.getElementById('binary-bg');
 function fillBinary(){
   // Each char is ~7.2px wide at font-size:12px letter-spacing:2px, each row ~14px tall
-  const cols=Math.ceil(window.innerWidth/9)+4;
+  const cols=Math.ceil((window.innerWidth+40)/9)+6;
   const rows=Math.ceil(window.innerHeight/14)+2;
   let b='';
   for(let i=0;i<rows;i++){for(let j=0;j<cols;j++)b+=Math.random()>.5?'1':'0';b+='\n';}
