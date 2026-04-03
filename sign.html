@@ -29,11 +29,6 @@
     pointer-events: none; transition: opacity 0.4s; text-align: center; line-height: 2.2; white-space: nowrap;
   }
   #signature-pad { display: block; width: 100%; height: 350px; cursor: crosshair; touch-action: none; }
-  #name-input {
-    width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(0,229,255,0.2);
-    color: #fff; padding: 14px; outline: none; margin-bottom: 16px; border-radius: 8px;
-    font-family: 'Noto Sans SC', sans-serif; font-size: 14px;
-  }
   .btn-row { display: flex; gap: 10px; }
   .btn {
     flex: 1; padding: 15px; font-family: 'Orbitron', sans-serif; font-size: 11px;
@@ -62,17 +57,19 @@
       <canvas id="signature-pad"></canvas>
     </div>
 
-<div class="btn-row">
-  <button class="btn btn-clear" onclick="clearPad()">CLEAR</button>
-  <button class="btn btn-submit" id="submit-btn" onclick="submitSig()">SUBMIT</button>
-</div>
+    <div class="btn-row">
+      <button class="btn btn-clear" onclick="clearPad()">CLEAR</button>
+      <button class="btn btn-submit" id="submit-btn" onclick="submitSig()">SUBMIT</button>
+    </div>
   </div>
+
   <div id="success">
     <h2 style="font-family:'Orbitron';color:var(--cyan)">PERFECT</h2>
     <p style="color:white;opacity:0.6;margin-top:10px">- Your mark is made - </p>
     <button class="btn btn-clear" style="margin-top:25px" onclick="resetForm()">NEW SIGNATURE</button>
   </div>
 </div>
+
 <div id="toast"></div>
 
 <script>
@@ -113,13 +110,11 @@ function endDraw() {
   ctx.closePath();
 }
 
-// mouse events
 canvas.addEventListener('mousedown', e => startDraw(e.offsetX, e.offsetY));
 canvas.addEventListener('mousemove', e => drawLine(e.offsetX, e.offsetY));
 canvas.addEventListener('mouseup', endDraw);
 canvas.addEventListener('mouseout', endDraw);
 
-// touch events
 canvas.addEventListener('touchstart', e => {
   e.preventDefault();
   const t = e.touches[0];
@@ -137,7 +132,7 @@ function clearPad() {
   document.getElementById('pad-hint').style.opacity = '1';
 }
 
-// ======= Submit / reset / toast functions (kept as-is) =======
+// ======= Submit / reset / toast functions =======
 const SUPABASE_URL  = 'https://gpdkcalhqbvztctoofwh.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdwZGtjYWxocWJ2enRjdG9vZndoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxMjIwMTksImV4cCI6MjA5MDY5ODAxOX0.M3B25IWhogS_8hKONXOjcjn4rFaJcBhIYWB77q2Z-Ew';
 let hasMark = false;
@@ -149,14 +144,19 @@ async function submitSig() {
   if (!hasMark) { showToast('Please draw your signature first'); return; }
   const btn = document.getElementById('submit-btn');
   btn.disabled = true; btn.textContent = 'SAVING...';
-  const name = document.getElementById('name-input').value.trim();
-  const imageData = canvas.toDataURL('image/png');
+
+  const imageData = canvas.toDataURL('image/png'); // no name input
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/signatures`, {
       method: 'POST',
-      headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: name || 'Anonymous', image_data: imageData })
+      headers: {
+        'apikey': SUPABASE_ANON,
+        'Authorization': `Bearer ${SUPABASE_ANON}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ name: 'Anonymous', image_data: imageData })
     });
+
     if (res.ok) {
       document.getElementById('form-view').style.display = 'none';
       document.getElementById('success').style.display = 'block';
