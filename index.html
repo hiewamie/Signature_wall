@@ -13,7 +13,6 @@
     color: #fff; font-family: sans-serif; overflow: hidden; height: 100vh; width: 100vw; 
   }
 
-  /* Layers: Binary (lowest) -> Flame -> Sphere (highest) */
   #binary-canvas { position: fixed; inset: 0; z-index: 0; opacity: 0.15; }
   #flame-canvas { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
   #sphere-canvas { position: fixed; inset: 0; z-index: 2; }
@@ -51,28 +50,24 @@ const bctx = bcanvas.getContext('2d');
 
 let W, H, cx, cy, baseR;
 const fontSize = 14;
-let columns;
-let drops = [];
+let columns, drops = [];
 
 function resize() {
   W = canvas.width = fcanvas.width = bcanvas.width = window.innerWidth;
   H = canvas.height = fcanvas.height = bcanvas.height = window.innerHeight;
   cx = W / 2; cy = H / 2;
   baseR = Math.min(W, H) * 0.40;
-  
   columns = Math.floor(W / fontSize);
   drops = Array(columns).fill(1);
 }
 window.addEventListener('resize', resize);
 resize();
 
-// --- Binary Background Logic ---
 function drawBinary() {
   bctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
   bctx.fillRect(0, 0, W, H);
-  bctx.fillStyle = '#0044ff'; // Deep cyber blue binary
+  bctx.fillStyle = '#0044ff';
   bctx.font = fontSize + 'px monospace';
-
   for (let i = 0; i < drops.length; i++) {
     const text = Math.random() > 0.5 ? "1" : "0";
     bctx.fillText(text, i * fontSize, drops[i] * fontSize);
@@ -81,14 +76,10 @@ function drawBinary() {
   }
 }
 
-// --- 3D Core Logic ---
-let pulseT = 0;
-let pulseState = "idle"; 
-let nextPulseTime = Date.now() + 6000; 
-
 const signatures = [];
 const seenIds = new Set();
 let rotY = 0, rotX = 0.1, isDragging = false, lastX = 0;
+let pulseT = 0, pulseState = "idle", nextPulseTime = Date.now() + 6000;
 
 function buildGlowCanvas(img) {
   const GW = 320, GH = 120;
@@ -116,70 +107,73 @@ function fibonacciPos(index, total) {
   return { x: r * Math.cos(theta), y: y, z: r * Math.sin(theta) };
 }
 
-function project(fx, fy, fz, currentR) {
-  let x = fx * currentR, y = fy * currentR, z = fz * currentR;
+function project(pos, currentR) {
+  let x = pos.x * currentR, y = pos.y * currentR, z = pos.z * currentR;
   const cY = Math.cos(rotY), sY = Math.sin(rotY), cX = Math.cos(rotX), sX = Math.sin(rotX);
   let rx = x*cY - z*sY, rz = x*sY + z*cY;
   let ry2 = y*cX - rz*sX, rz2 = y*sX + rz*cX;
-  const camDist = 700; const fov = 550;
+  const camDist = 700, fov = 550;
   const sc = fov / (camDist + rz2); 
   return { sx: cx + rx * sc, sy: cy + ry2 * sc, scale: sc, depth: rz2, visible: (camDist + rz2) > 10 };
 }
 
 function animate() {
   const now = Date.now();
-  drawBinary(); // Background layer
+  drawBinary();
 
-  if (now > nextPulseTime && pulseState === "idle") {
-    pulseState = "expanding";
-    pulseT = 0;
-  }
-
+  if (now > nextPulseTime && pulseState === "idle") { pulseState = "expanding"; pulseT = 0; }
   let easeFactor = 0;
   if (pulseState === "expanding") {
-    pulseT += 0.0033; 
-    easeFactor = pulseT * pulseT * (3 - 2 * pulseT);
+    pulseT += 0.0033; easeFactor = pulseT * pulseT * (3 - 2 * pulseT);
     if (pulseT >= 1) pulseState = "shrinking";
   } else if (pulseState === "shrinking") {
-    pulseT -= 0.007; 
-    easeFactor = pulseT * pulseT * (3 - 2 * pulseT);
-    if (pulseT <= 0) {
-      pulseState = "idle";
-      nextPulseTime = now + 7000; 
-    }
+    pulseT -= 0.007; easeFactor = pulseT * pulseT * (3 - 2 * pulseT);
+    if (pulseT <= 0) { pulseState = "idle"; nextPulseTime = now + 7000; }
   }
 
   const scaleMultiplier = 1 + easeFactor * 7.0; 
   const currentR = baseR * scaleMultiplier;
-  const rotationSpeed = 0.0012 + (easeFactor * 0.04);
-  if (!isDragging) rotY += rotationSpeed;
+  if (!isDragging) rotY += 0.0012 + (easeFactor * 0.04);
 
-  // Flame layer
+  // Flame
   fctx.clearRect(0, 0, W, H);
   fctx.save();
   fctx.globalCompositeOperation = 'screen';
-  const flameAlpha = 0.25 * (1 - easeFactor);
   const g = fctx.createRadialGradient(cx, cy, currentR * 0.7, cx, cy, currentR * (1.1 + easeFactor * 2.5));
   g.addColorStop(0, 'rgba(0,0,0,0)');
-  g.addColorStop(0.3, `rgba(0, 80, 200, ${flameAlpha})`);
+  g.addColorStop(0.3, `rgba(0, 80, 200, ${0.25 * (1 - easeFactor)})`);
   g.addColorStop(1, 'rgba(0,0,0,0)');
-  fctx.fillStyle = g;
-  fctx.beginPath(); fctx.arc(cx, cy, W, 0, Math.PI * 2); fctx.fill();
+  fctx.fillStyle = g; fctx.beginPath(); fctx.arc(cx, cy, W, 0, Math.PI * 2); fctx.fill();
   fctx.restore();
 
-  // Signature layer
+  // Signatures
   ctx.clearRect(0, 0, W, H);
-  const projected = signatures.map(s => ({ s, ...project(s.fx, s.fy, s.fz, currentR) }));
-  const sorted = projected.filter(p => p.visible).sort((a,b) => a.depth - b.depth);
-  
-  sorted.forEach(item => {
-    const { s, sx, sy, scale, depth } = item;
-    const sw = (baseR * 0.38) * scale * (1 + easeFactor * 1.5);
-    const sh = sw * (120/320);
-    const depthRatio = (depth + currentR) / (2 * currentR); 
+  const toDraw = signatures.map(s => {
+    // Spawn transition logic
+    if (s.spawnT < 1) s.spawnT += 0.008; // Control fly-back speed here
+    
+    // Smooth easing for spawn
+    const t = Math.max(0, (s.spawnT - 0.3) / 0.7); // Delay fly-back for 30% of spawn duration
+    const ease = t * t * (3 - 2 * t);
+    
+    // Interpolate between center (0,0,0) and target Fibonacci position
+    const currentPos = {
+      x: s.targetPos.x * ease,
+      y: s.targetPos.y * ease,
+      z: s.targetPos.z * ease
+    };
+
+    const proj = project(currentPos, currentR);
+    return { s, ...proj, entranceScale: (1 - ease) * 2.5 + 1 }; 
+  });
+
+  toDraw.filter(p => p.visible).sort((a,b) => a.depth - b.depth).forEach(item => {
+    const { s, sx, sy, scale, depth, entranceScale } = item;
+    const finalScale = scale * entranceScale * (baseR * 0.38) * (1 + easeFactor * 1.5);
+    const sw = finalScale, sh = finalScale * (120/320);
     
     ctx.save();
-    ctx.globalAlpha = Math.min(1, depthRatio * 1.8) * (1 - easeFactor * 0.1);
+    ctx.globalAlpha = Math.min(1, ((depth + currentR) / (2 * currentR)) * 1.8) * (1 - easeFactor * 0.1);
     ctx.globalCompositeOperation = 'screen';
     if (scale > 2.5) { ctx.shadowBlur = 25; ctx.shadowColor = "#66b3ff"; }
     ctx.drawImage(s.glowCanvas, sx - sw/2, sy - sh/2, sw, sh);
@@ -189,21 +183,25 @@ function animate() {
   requestAnimationFrame(animate);
 }
 
-// User Controls
 canvas.addEventListener('mousedown', e => { isDragging = true; lastX = e.clientX; });
 window.addEventListener('mouseup', () => isDragging = false);
 window.addEventListener('mousemove', e => { if (isDragging) { rotY += (e.clientX - lastX) * 0.008; lastX = e.clientX; } });
 
-async function handleNewRow(row) {
+async function handleNewRow(row, isInitial = false) {
   if (seenIds.has(row.id)) return;
   seenIds.add(row.id);
   const img = new Image();
   img.crossOrigin = "anonymous";
   img.onload = () => {
-    signatures.push({ glowCanvas: buildGlowCanvas(img), fx:0, fy:0, fz:1 });
+    const newSig = { 
+        glowCanvas: buildGlowCanvas(img), 
+        spawnT: isInitial ? 1 : 0, // Initial ones are already in place
+        targetPos: {x:0, y:0, z:0} 
+    };
+    signatures.push(newSig);
+    // Update all target positions
     signatures.forEach((s, i) => {
-      const p = fibonacciPos(i, signatures.length);
-      s.fx = p.x; s.fy = p.y; s.fz = p.z;
+      s.targetPos = fibonacciPos(i, signatures.length);
     });
     document.getElementById('sig-count').textContent = signatures.length;
   };
@@ -216,14 +214,16 @@ async function init() {
       headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` }
     });
     const data = await res.json();
-    if (data) data.forEach(row => handleNewRow(row));
+    if (data) data.forEach(row => handleNewRow(row, true));
   } catch(e) {}
   
   const ws = new WebSocket(`wss://gpdkcalhqbvztctoofwh.supabase.co/realtime/v1/websocket?apikey=${SUPABASE_ANON}&vsn=1.0.0`);
   ws.onopen = () => ws.send(JSON.stringify({topic:'realtime:public:signatures', event:'phx_join', payload:{}, ref:'1'}));
   ws.onmessage = e => {
     const msg = JSON.parse(e.data);
-    if (msg.event === 'postgres_changes' || msg.event === 'INSERT') handleNewRow(msg.payload.data.record);
+    if ((msg.event === 'postgres_changes' || msg.event === 'INSERT') && msg.payload.data) {
+        handleNewRow(msg.payload.data.record, false);
+    }
   };
 }
 
