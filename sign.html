@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Glowing White Calligraphy Sign</title>
+<title>COOL PEOPLE ONLY</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400&family=Orbitron:wght@400;700&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -56,20 +56,20 @@
 <div class="card">
   <div id="form-view">
     <h1>GLOWING BRUSH</h1>
-    <p class="sub">CALLIGRAPHY · WHITE GLOW</p>
+    <p class="sub">DROP YOUR BEST SIGNATURE</p>
     <div id="pad-wrapper">
-      <div id="pad-hint">在此签名 · SIGN HERE</div>
+      <div id="pad-hint">SIGN HERE</div>
       <canvas id="signature-pad"></canvas>
     </div>
     <input id="name-input" type="text" placeholder="Your Name (Optional)" maxlength="24">
     <div class="btn-row">
       <button class="btn btn-clear" onclick="clearPad()">CLEAR</button>
-      <button class="btn btn-submit" id="submit-btn" onclick="submitSig()">SUBMIT SIGNATURE</button>
+      <button class="btn btn-submit" id="submit-btn" onclick="submitSig()">SUBMIT</button>
     </div>
   </div>
   <div id="success">
     <h2 style="font-family:'Orbitron';color:var(--cyan)">SUBMITTED</h2>
-    <p style="color:white;opacity:0.6;margin-top:10px">Your brush strokes have been saved.</p>
+    <p style="color:white;opacity:0.6;margin-top:10px">PERFECT</p>
     <button class="btn btn-clear" style="margin-top:25px" onclick="resetForm()">NEW SIGNATURE</button>
   </div>
 </div>
@@ -163,7 +163,7 @@ async function submitSig() {
     } else throw new Error();
   } catch {
     showToast('Submit failed. Check connection.');
-    btn.disabled = false; btn.textContent = 'SUBMIT SIGNATURE';
+    btn.disabled = false; btn.textContent = 'SUBMIT';
   }
 }
 
@@ -171,7 +171,7 @@ function resetForm() {
   document.getElementById('success').style.display = 'none';
   document.getElementById('form-view').style.display = 'block';
   document.getElementById('submit-btn').disabled = false;
-  document.getElementById('submit-btn').textContent = 'SUBMIT SIGNATURE';
+  document.getElementById('submit-btn').textContent = 'SUBMIT';
   clearPad();
   hasMark = false;
 }
