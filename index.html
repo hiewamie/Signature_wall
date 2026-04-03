@@ -3,27 +3,52 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>REAL-TIME HERO CORE</title>
+<title>签名签到 · Signature Wall</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400&family=Orbitron:wght@400;700&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #000; color: #fff; font-family: sans-serif; overflow: hidden; height: 100vh; width: 100vw; }
-  #binary-canvas { position: fixed; inset: 0; z-index: 0; opacity: 0.1; }
+  :root { --bg: #020818; --cyan: #00e5ff; --blue: #1a6cff; }
+  body { background: var(--bg); color: #fff; font-family: 'Noto Sans SC', sans-serif; overflow: hidden; height: 100vh; width: 100vw; }
+
+  /* Layers: Binary (0) -> Space (pseudo) -> Sphere (1) -> Fly-In (2) */
+  #binary-canvas { position: fixed; inset: 0; z-index: 0; opacity: 0.12; pointer-events: none; }
+  #sphere-canvas { position: fixed; inset: 0; z-index: 1; }
   #flame-canvas { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
-  #sphere-canvas { position: fixed; inset: 0; z-index: 2; }
+
+  /* Deep space background */
+  body::before {
+    content: ''; position: fixed; inset: 0; pointer-events: none; z-index: -1;
+    background:
+      radial-gradient(ellipse 80% 60% at 50% 50%, rgba(10,30,100,0.55) 0%, transparent 70%),
+      radial-gradient(ellipse 100% 100% at 50% 50%, rgba(2,8,24,1) 0%, transparent 100%);
+  }
+
   #title { position: fixed; top: 28px; left: 50%; transform: translateX(-50%); z-index: 10; text-align: center; pointer-events: none; }
-  #title h1 { font-family: 'Orbitron', monospace; font-size: 16px; letter-spacing: 0.5em; color: #3399ff; text-shadow: 0 0 20px rgba(51,153,255,0.5); }
-  #counter { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 10; font-family: 'Orbitron', monospace; font-size: 10px; color: rgba(51,153,255,0.4); }
-  #counter span { font-size: 18px; color: #fff; }
-  #clear-btn { position: fixed; top: 0; right: 0; width: 50px; height: 50px; z-index: 100; background: transparent; border: none; }
+  #title h1 {
+    font-family: 'Orbitron', monospace; font-size: clamp(14px, 2vw, 22px);
+    font-weight: 700; letter-spacing: 0.3em; color: var(--cyan);
+    text-shadow: 0 0 20px rgba(0,229,255,0.7), 0 0 50px rgba(0,229,255,0.3);
+  }
+  #counter { position: fixed; bottom: 36px; left: 50%; transform: translateX(-50%); z-index: 10; font-family: 'Orbitron', monospace; font-size: 11px; letter-spacing: 0.25em; color: rgba(255,255,255,0.25); pointer-events: none; }
+  #counter span { color: var(--cyan); font-size: 20px; font-weight: 700; }
+  #status { position: fixed; top: 16px; right: 20px; z-index: 10; font-family: 'Orbitron', monospace; font-size: 10px; letter-spacing: 0.15em; color: rgba(255,255,255,0.2); display: flex; align-items: center; gap: 6px; }
+  #status-dot { width: 6px; height: 6px; border-radius: 50%; background: #2ecc71; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.3} }
+  
+  #clear-btn { position: fixed; top: 0; right: 0; width: 56px; height: 56px; z-index: 100; cursor: default; background: transparent; border: none; }
+  #new-sig-overlay { position: fixed; inset: 0; z-index: 20; pointer-events: none; display: flex; align-items: center; justify-content: center; }
+  .ripple { position: fixed; border-radius: 50%; border: 1.5px solid var(--cyan); pointer-events: none; animation: rippleAnim 1.4s ease-out forwards; z-index: 5; }
+  @keyframes rippleAnim { from{width:0;height:0;opacity:0.8;transform:translate(-50%,-50%);}to{width:600px;height:600px;opacity:0;transform:translate(-50%,-50%);} }
 </style>
 </head>
 <body>
 <canvas id="binary-canvas"></canvas>
 <canvas id="flame-canvas"></canvas>
 <canvas id="sphere-canvas"></canvas>
-<div id="title"><h1>CORE REAL-TIME SYNC</h1></div>
-<div id="counter"><span id="sig-count">0</span>&nbsp; NODES CONNECTED</div>
+
+<div id="title"><h1>GAME ON SIGNATURE WALL</h1><p>BY AMIE</p></div>
+<div id="counter"><span id="sig-count">0</span>&nbsp;&nbsp;SIGNATURES</div>
+<div id="status"><div id="status-dot"></div>LIVE</div>
 <button id="clear-btn"></button>
 
 <script>
@@ -34,201 +59,247 @@ const canvas = document.getElementById('sphere-canvas'), ctx = canvas.getContext
 const fcanvas = document.getElementById('flame-canvas'), fctx = fcanvas.getContext('2d');
 const bcanvas = document.getElementById('binary-canvas'), bctx = bcanvas.getContext('2d');
 
-let W, H, cx, cy, baseR;
-const fontSize = 14;
-let columns, drops = [];
+let W, H, cx, cy, R;
+const bFontSize = 14;
+let bDrops = [];
 
 function resize() {
   W = canvas.width = fcanvas.width = bcanvas.width = window.innerWidth;
   H = canvas.height = fcanvas.height = bcanvas.height = window.innerHeight;
   cx = W / 2; cy = H / 2;
-  baseR = Math.min(W, H) * 0.40;
-  columns = Math.floor(W / fontSize);
-  drops = Array(columns).fill(1);
+  R = Math.min(W, H) * 0.33;
+  bDrops = Array(Math.floor(W / bFontSize)).fill(1);
 }
-window.addEventListener('resize', resize);
 resize();
+window.addEventListener('resize', resize);
 
+// --- Binary Layer ---
 function drawBinary() {
-  bctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+  bctx.fillStyle = 'rgba(2, 8, 24, 0.1)'; // Matches your --bg
   bctx.fillRect(0, 0, W, H);
-  bctx.fillStyle = '#0044ff';
-  bctx.font = fontSize + 'px monospace';
-  for (let i = 0; i < drops.length; i++) {
+  bctx.fillStyle = '#00e5ff'; // Cyan binary
+  bctx.font = bFontSize + 'px monospace';
+  for (let i = 0; i < bDrops.length; i++) {
     const text = Math.random() > 0.5 ? "1" : "0";
-    bctx.fillText(text, i * fontSize, drops[i] * fontSize);
-    if (drops[i] * fontSize > H && Math.random() > 0.975) drops[i] = 0;
-    drops[i]++;
+    bctx.fillText(text, i * bFontSize, bDrops[i] * bFontSize);
+    if (bDrops[i] * bFontSize > H && Math.random() > 0.975) bDrops[i] = 0;
+    bDrops[i]++;
   }
 }
 
-const signatures = [];
-const seenIds = new Set();
-let rotY = 0, rotX = 0.1, isDragging = false, lastX = 0;
-let pulseT = 0, pulseState = "idle", nextPulseTime = Date.now() + 6000;
-
+// --- Signature Processing ---
 function buildGlowCanvas(img) {
   const GW = 320, GH = 120;
   const raw = document.createElement('canvas'); raw.width = GW; raw.height = GH;
   const rctx = raw.getContext('2d'); rctx.drawImage(img, 0, 0, GW, GH);
   const idata = rctx.getImageData(0, 0, GW, GH), d = idata.data;
+  
+  // Calculate if image is dark on light or vice versa
+  let cs = 0;
+  [[0,0],[GW-1,0],[0,GH-1],[GW-1,GH-1]].forEach(([x,y]) => {
+    const i = (y * GW + x) * 4; cs += (d[i] + d[i+1] + d[i+2]) / 3;
+  });
+  const darkOnLight = (cs / 4) > 180;
+
   for (let i = 0; i < d.length; i += 4) {
-    d[i] = 180; d[i+1] = 240; d[i+2] = 255;
-    d[i+3] = d[i+3] > 30 ? 255 : 0;
+    const r = d[i], g = d[i+1], bl = d[i+2], a = d[i+3];
+    if (a < 10) { d[i+3] = 0; continue; }
+    let ink = darkOnLight ? 1 - (r+g+bl)/(3*255) : a/255;
+    if (ink < 0.06) { d[i+3] = 0; continue; }
+    const t = Math.min(1, ink * 1.5);
+    d[i] = Math.round(180 + 75 * t);
+    d[i+1] = Math.round(220 + 35 * t);
+    d[i+2] = 255;
+    d[i+3] = Math.round(255 * Math.min(1, ink * 1.8));
   }
   rctx.putImageData(idata, 0, 0);
+  
   const gc = document.createElement('canvas'); gc.width = GW; gc.height = GH;
   const gctx = gc.getContext('2d');
-  gctx.filter = 'blur(5px)'; gctx.globalAlpha = 0.5; gctx.drawImage(raw, 0, 0);
-  gctx.filter = 'none'; gctx.globalAlpha = 1; gctx.drawImage(raw, 0, 0);
+  [[9, 0.45],[4, 0.65],[1.5, 0.85],[0, 1]].forEach(([blur, alpha]) => {
+    gctx.save();
+    gctx.filter = blur ? `blur(${blur}px)` : 'none';
+    gctx.globalAlpha = alpha;
+    gctx.drawImage(raw, 0, 0);
+    gctx.restore();
+  });
   return gc;
+}
+
+const signatures = [];
+const seenIds = new Set();
+let rotY = 0, rotX = 0.28, isDragging = false, lastMX = 0, lastMY = 0;
+
+const flyQueue = [];
+let flyIn = null;
+const FLY_IN_MS = 800, HOLD_MS = 1800, SHRINK_MS = 1000;
+
+function enqueue(glowCanvas, name) {
+  flyQueue.push({ glowCanvas, name });
+  if (!flyIn) dequeue();
+}
+function dequeue() {
+  if (flyQueue.length === 0) { flyIn = null; return; }
+  const next = flyQueue.shift();
+  flyIn = { glowCanvas: next.glowCanvas, name: next.name, phase: 'in', t0: performance.now() };
+  spawnRipple();
+}
+
+function project(fx, fy, fz) {
+  let x = fx * R, y = fy * R, z = fz * R;
+  const cY = Math.cos(rotY), sY = Math.sin(rotY);
+  let rx = x*cY - z*sY, rz = x*sY + z*cY;
+  const cX = Math.cos(rotX), sX = Math.sin(rotX);
+  let ry2 = y*cX - rz*sX, rz2 = y*sX + rz*cX;
+  const fov = 900, sc = fov / (fov + rz2);
+  return { sx: cx + rx*sc, sy: cy + ry2*sc, scale: sc, depth: rz2 };
 }
 
 function fibonacciPos(index, total) {
   const golden = Math.PI * (3 - Math.sqrt(5));
-  const yRaw = 1 - (index / (total - 1 || 1)) * 2;
-  const y = yRaw * 0.85; 
-  const r = Math.sqrt(1 - y * y);
+  const yRaw = 1 - ((index + 0.5) / (Math.max(total, 1))) * 2;
+  const y = yRaw * 0.85;
+  const r = Math.sqrt(Math.max(0, 1 - y*y));
   const theta = golden * index;
-  return { x: r * Math.cos(theta), y: y, z: r * Math.sin(theta) };
+  return { x: r*Math.cos(theta), y, z: r*Math.sin(theta) };
 }
 
-function project(pos, currentR, isHero, t) {
-  // If it's a "Hero", we don't apply global rotation until it's flying back
-  let x = pos.x * currentR, y = pos.y * currentR, z = pos.z * currentR;
-  
-  const curRotY = isHero ? (rotY * t) : rotY; 
-  const curRotX = isHero ? (rotX * t) : rotX;
-
-  const cY = Math.cos(curRotY), sY = Math.sin(curRotY), cX = Math.cos(curRotX), sX = Math.sin(curRotX);
-  
-  let rx = x*cY - z*sY, rz = x*sY + z*cY;
-  let ry2 = y*cX - rz*sX, rz2 = y*sX + rz*cX;
-  
-  const camDist = 700, fov = 550;
-  const sc = fov / (camDist + rz2); 
-  return { sx: cx + rx * sc, sy: cy + ry2 * sc, scale: sc, depth: rz2, visible: (camDist + rz2) > 10 };
+function repositionAll() {
+  const total = signatures.length;
+  signatures.forEach((s, i) => { const p = fibonacciPos(i, total); s.fx = p.x; s.fy = p.y; s.fz = p.z; });
 }
 
-function animate() {
-  const now = Date.now();
+function commitToSphere(glowCanvas, name) {
+  signatures.push({ glowCanvas, name, fx: 0, fy: 0, fz: 1, opacity: 0 });
+  repositionAll();
+  document.getElementById('sig-count').textContent = signatures.length;
+}
+
+// --- Animation Loop ---
+function animate(now) {
   drawBinary();
-
-  if (now > nextPulseTime && pulseState === "idle") { pulseState = "expanding"; pulseT = 0; }
-  let easeFactor = 0;
-  if (pulseState === "expanding") {
-    pulseT += 0.0033; easeFactor = pulseT * pulseT * (3 - 2 * pulseT);
-    if (pulseT >= 1) pulseState = "shrinking";
-  } else if (pulseState === "shrinking") {
-    pulseT -= 0.007; easeFactor = pulseT * pulseT * (3 - 2 * pulseT);
-    if (pulseT <= 0) { pulseState = "idle"; nextPulseTime = now + 7000; }
-  }
-
-  const scaleMultiplier = 1 + easeFactor * 7.0; 
-  const currentR = baseR * scaleMultiplier;
-  if (!isDragging) rotY += 0.0012 + (easeFactor * 0.04);
-
   fctx.clearRect(0, 0, W, H);
-  fctx.save();
-  fctx.globalCompositeOperation = 'screen';
-  const g = fctx.createRadialGradient(cx, cy, currentR * 0.7, cx, cy, currentR * (1.1 + easeFactor * 2.5));
-  g.addColorStop(0, 'rgba(0,0,0,0)');
-  g.addColorStop(0.3, `rgba(0, 80, 200, ${0.2 * (1 - easeFactor)})`);
-  g.addColorStop(1, 'rgba(0,0,0,0)');
-  fctx.fillStyle = g; fctx.beginPath(); fctx.arc(cx, cy, W, 0, Math.PI * 2); fctx.fill();
-  fctx.restore();
-
   ctx.clearRect(0, 0, W, H);
-  const toDraw = signatures.map(s => {
-    if (s.spawnT < 1) s.spawnT += 0.005; // Speed of transition
-    
-    // t=0: Center/Big | t=1: Sphere Position
-    const t = Math.max(0, (s.spawnT - 0.2) / 0.8); 
-    const ease = t * t * (3 - 2 * t);
-    
-    const currentPos = {
-      x: s.targetPos.x * ease,
-      y: s.targetPos.y * ease,
-      z: s.targetPos.z * (ease) - (1 - ease) * 1.5 // Start slightly forward
-    };
+  
+  if (!isDragging) rotY += 0.003;
 
-    const proj = project(currentPos, currentR, s.spawnT < 1, ease);
-    return { s, ...proj, entranceScale: (1 - ease) * 3.5 + 1 }; 
-  });
+  // 1. Draw Halo/Flame
+  const ring = fctx.createRadialGradient(cx, cy, R * 0.8, cx, cy, R * 1.2);
+  ring.addColorStop(0, 'rgba(0,180,255,0)');
+  ring.addColorStop(0.7, 'rgba(100,230,255,0.3)');
+  ring.addColorStop(1, 'rgba(0,0,0,0)');
+  fctx.fillStyle = ring; fctx.fillRect(0, 0, W, H);
 
-  toDraw.filter(p => p.visible).sort((a,b) => a.depth - b.depth).forEach(item => {
-    const { s, sx, sy, scale, depth, entranceScale } = item;
-    const finalSize = scale * entranceScale * (baseR * 0.38) * (1 + easeFactor * 1.5);
+  // 2. Draw Sphere Signatures
+  const projected = signatures.map(s => { const p = project(s.fx, s.fy, s.fz); return { s, ...p }; }).sort((a, b) => a.depth - b.depth);
+  
+  for (const item of projected) {
+    const { s, sx, sy, scale, depth } = item;
+    if (flyIn && flyIn.phase === 'shrink' && s === signatures[signatures.length - 1]) continue;
+    if (s.opacity < 1) s.opacity = Math.min(1, s.opacity + 0.02);
+    
+    const depthNorm = (depth + R) / (2 * R);
+    const sw = (R * 0.58) * Math.min(scale, 1.15), sh = sw * (120/320);
     
     ctx.save();
-    ctx.globalAlpha = Math.min(1, ((depth + currentR) / (2 * currentR)) * 2) * (1 - easeFactor * 0.1);
+    ctx.globalAlpha = (0.1 + 0.9 * depthNorm) * s.opacity;
     ctx.globalCompositeOperation = 'screen';
-    if (entranceScale > 1.5) { ctx.shadowBlur = 30; ctx.shadowColor = "#fff"; }
-    ctx.drawImage(s.glowCanvas, sx - finalSize/2, sy - (finalSize * 0.375)/2, finalSize, finalSize * 0.375);
+    ctx.drawImage(s.glowCanvas, sx - sw/2, sy - sh/2, sw, sh);
     ctx.restore();
-  });
+  }
+
+  // 3. Draw Fly-In Animation
+  if (flyIn) {
+    const elapsed = now - flyIn.t0;
+    const BIG_W = Math.min(W * 0.48, 500), BIG_H = BIG_W * (120/320);
+    let alpha = 1, scl = 1, sx = cx, sy = cy;
+
+    if (flyIn.phase === 'in') {
+      const p = Math.min(1, elapsed / FLY_IN_MS);
+      const ease = 1 - Math.pow(1 - p, 3);
+      alpha = ease; scl = 0.5 + 0.5 * ease;
+      if (elapsed >= FLY_IN_MS) { flyIn.phase = 'hold'; flyIn.t0 = now; }
+    } else if (flyIn.phase === 'hold') {
+      if (elapsed >= HOLD_MS) { commitToSphere(flyIn.glowCanvas, flyIn.name); flyIn.phase = 'shrink'; flyIn.t0 = now; }
+    } else if (flyIn.phase === 'shrink') {
+      const p = Math.min(1, elapsed / SHRINK_MS);
+      const ease = p * p * (3 - 2 * p);
+      const s = signatures[signatures.length - 1];
+      const targetProj = project(s.fx, s.fy, s.fz);
+      sx = cx + (targetProj.sx - cx) * ease;
+      sy = cy + (targetProj.sy - cy) * ease;
+      const targetW = (R * 0.58) * Math.min(targetProj.scale, 1.15);
+      scl = 1 + (targetW / BIG_W - 1) * ease;
+      if (elapsed >= SHRINK_MS) { s.opacity = 1; dequeue(); }
+    }
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.globalCompositeOperation = 'screen';
+    ctx.drawImage(flyIn.glowCanvas, sx - (BIG_W*scl)/2, sy - (BIG_H*scl)/2, BIG_W*scl, BIG_H*scl);
+    ctx.restore();
+  }
 
   requestAnimationFrame(animate);
 }
 
-canvas.addEventListener('mousedown', e => { isDragging = true; lastX = e.clientX; });
-window.addEventListener('mouseup', () => isDragging = false);
-window.addEventListener('mousemove', e => { if (isDragging) { rotY += (e.clientX - lastX) * 0.008; lastX = e.clientX; } });
+function spawnRipple() {
+  const el = document.createElement('div'); el.className = 'ripple';
+  el.style.left = cx + 'px'; el.style.top = cy + 'px';
+  document.body.appendChild(el); setTimeout(() => el.remove(), 1500);
+}
 
+// --- Connectivity ---
 async function handleNewRow(row, isInitial = false) {
-  if (seenIds.has(row.id)) return;
+  if (!row || seenIds.has(row.id)) return;
   seenIds.add(row.id);
   const img = new Image();
   img.crossOrigin = "anonymous";
   img.onload = () => {
-    signatures.push({ 
-        glowCanvas: buildGlowCanvas(img), 
-        spawnT: isInitial ? 1 : 0, 
-        targetPos: {x:0, y:0, z:0} 
-    });
-    signatures.forEach((s, i) => { s.targetPos = fibonacciPos(i, signatures.length); });
-    document.getElementById('sig-count').textContent = signatures.length;
+    const gc = buildGlowCanvas(img);
+    if (isInitial) {
+      signatures.push({ glowCanvas: gc, name: row.name, fx: 0, fy: 0, fz: 1, opacity: 1 });
+      repositionAll();
+      document.getElementById('sig-count').textContent = signatures.length;
+    } else {
+      enqueue(gc, row.name);
+    }
   };
   img.src = row.image_data;
 }
 
 async function init() {
-  try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/signatures?select=*`, {
-      headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` }
-    });
-    const data = await res.json();
-    if (data) data.forEach(row => handleNewRow(row, true));
-  } catch(e) {}
-  
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/signatures?select=*&order=created_at.asc`, {
+    headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` }
+  });
+  const data = await res.json();
+  if (data) data.forEach(row => handleNewRow(row, true));
+
   const ws = new WebSocket(`wss://gpdkcalhqbvztctoofwh.supabase.co/realtime/v1/websocket?apikey=${SUPABASE_ANON}&vsn=1.0.0`);
   ws.onopen = () => {
-    ws.send(JSON.stringify({topic:'realtime:public:signatures', event:'phx_join', payload:{}, ref:'1'}));
-    // Keepalive
-    setInterval(() => ws.send(JSON.stringify({topic:'phoenix', event:'heartbeat', payload:{}, ref:'hb'})), 30000);
+    ws.send(JSON.stringify({ 
+      topic: 'realtime:public:signatures', 
+      event: 'phx_join', 
+      payload: { config: { postgres_changes: [{ event: 'INSERT', schema: 'public', table: 'signatures' }] } }, 
+      ref: '1' 
+    }));
+    setInterval(() => ws.send(JSON.stringify({ topic: 'phoenix', event: 'heartbeat', payload: {}, ref: 'hb' })), 25000);
   };
   ws.onmessage = e => {
     const msg = JSON.parse(e.data);
-    // Realtime V2 path
-    if (msg.event === "postgres_changes") {
-       handleNewRow(msg.payload.data.record, false);
-    } 
-    // Realtime fallback
-    if (msg.event === "INSERT") {
-       handleNewRow(msg.payload.data, false);
+    if (msg.event === "postgres_changes" && msg.payload.data.record) {
+      handleNewRow(msg.payload.data.record, false);
     }
   };
 }
 
-document.getElementById('clear-btn').onclick = async () => {
-  if(confirm("Purge Core?")) {
-    await fetch(`${SUPABASE_URL}/rest/v1/signatures?id=neq.0`, { method:'DELETE', headers:{'apikey':SUPABASE_ANON, 'Authorization':`Bearer ${SUPABASE_ANON}`} });
-    location.reload();
-  }
-};
+// Mouse interaction
+canvas.addEventListener('mousedown', e => { isDragging = true; lastMX = e.clientX; });
+window.addEventListener('mousemove', e => { if (isDragging) { rotY += (e.clientX - lastMX) * 0.005; lastMX = e.clientX; } });
+window.addEventListener('mouseup', () => isDragging = false);
 
 init();
-animate();
+requestAnimationFrame(animate);
 </script>
 </body>
 </html>
