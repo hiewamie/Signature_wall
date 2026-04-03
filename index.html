@@ -3,47 +3,30 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>签名签到 · Global Pulse Wall</title>
+<title>Solar Signature Sphere</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400&family=Orbitron:wght@400;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  :root { --bg: #020818; --cyan: #00e5ff; --blue: #1a6cff; }
-  body { background: var(--bg); color: #fff; font-family: 'Noto Sans SC', sans-serif; overflow: hidden; height: 100vh; width: 100vw; }
+  body { background: #01040a; color: #fff; font-family: sans-serif; overflow: hidden; height: 100vh; width: 100vw; }
 
-  body::before {
-    content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
-    background: radial-gradient(ellipse 80% 60% at 50% 50%, rgba(10,30,100,0.55) 0%, transparent 70%),
-                radial-gradient(ellipse 100% 100% at 50% 50%, rgba(2,8,24,1) 0%, transparent 100%);
-  }
-
-  #sphere-canvas { position: fixed; inset: 0; z-index: 1; }
+  #sphere-canvas { position: fixed; inset: 0; z-index: 2; }
   #flame-canvas { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
 
   #title { position: fixed; top: 28px; left: 50%; transform: translateX(-50%); z-index: 10; text-align: center; pointer-events: none; }
-  #title h1 { font-family: 'Orbitron', monospace; font-size: 20px; font-weight: 700; letter-spacing: 0.3em; color: var(--cyan); text-shadow: 0 0 20px rgba(0,229,255,0.7); }
+  #title h1 { font-family: 'Orbitron', monospace; font-size: 18px; letter-spacing: 0.4em; color: #00e5ff; text-shadow: 0 0 15px rgba(0,229,255,0.6); }
   
-  #counter { position: fixed; bottom: 36px; left: 50%; transform: translateX(-50%); z-index: 10; font-family: 'Orbitron', monospace; font-size: 11px; letter-spacing: 0.25em; color: rgba(255,255,255,0.25); }
-  #counter span { color: var(--cyan); font-size: 20px; font-weight: 700; }
+  #counter { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 10; font-family: 'Orbitron', monospace; font-size: 10px; color: rgba(0,229,255,0.5); }
+  #counter span { font-size: 18px; color: #fff; }
 
-  #clear-btn { position: fixed; top: 0; right: 0; width: 56px; height: 56px; z-index: 100; background: transparent; border: none; }
-  #confirm-overlay { display: none; position: fixed; inset: 0; z-index: 300; background: rgba(0,0,0,0.8); align-items: center; justify-content: center; }
-  #confirm-overlay.show { display: flex; }
+  #clear-btn { position: fixed; top: 0; right: 0; width: 50px; height: 50px; z-index: 100; background: transparent; border: none; cursor: crosshair; }
 </style>
 </head>
 <body>
 <canvas id="flame-canvas"></canvas>
 <canvas id="sphere-canvas"></canvas>
-<div id="title"><h1>CORE SYSTEM SIGNATURES</h1></div>
-<div id="counter"><span id="sig-count">0</span>&nbsp;&nbsp;NODES</div>
+<div id="title"><h1>SOLAR CORE SYSTEM</h1></div>
+<div id="counter"><span id="sig-count">0</span>&nbsp;ACTIVE NODES</div>
 <button id="clear-btn"></button>
-
-<div id="confirm-overlay">
-  <div style="background: #080c1a; border: 1px solid var(--cyan); padding: 40px; border-radius: 15px; text-align: center;">
-    <p style="margin-bottom: 20px;">WIPE ALL DATA?</p>
-    <button id="btn-confirm" style="background: rgba(0,229,255,0.2); color: #fff; padding: 10px 20px; border: 1px solid var(--cyan); cursor: pointer;">CONFIRM</button>
-    <button id="btn-cancel" style="background: #333; color: #fff; padding: 10px 20px; border: none; margin-left: 10px; cursor: pointer;">CANCEL</button>
-  </div>
-</div>
 
 <script>
 const SUPABASE_URL  = 'https://gpdkcalhqbvztctoofwh.supabase.co';
@@ -59,47 +42,46 @@ function resize() {
   W = canvas.width = fcanvas.width = window.innerWidth;
   H = canvas.height = fcanvas.height = window.innerHeight;
   cx = W / 2; cy = H / 2;
-  baseR = Math.min(W, H) * 0.3;
+  baseR = Math.min(W, H) * 0.32;
 }
 window.addEventListener('resize', resize);
 resize();
 
-// Pulse State Variables
+// Pulse State: Triggers every 8 seconds
 let pulseT = 0;
-let pulseState = "idle"; // idle, expanding, shrinking
-let nextPulseTime = Date.now() + 10000; // First pulse in 10s
+let pulseState = "idle"; 
+let nextPulseTime = Date.now() + 8000; 
 
 const signatures = [];
 const seenIds = new Set();
 const glowCache = new Map();
-let rotY = 0, rotX = 0.28, isDragging = false;
+let rotY = 0, rotX = 0.2, isDragging = false, lastX = 0;
 
-// --- Image Processing ---
 function buildGlowCanvas(img) {
   const GW = 320, GH = 120;
   const raw = document.createElement('canvas'); raw.width = GW; raw.height = GH;
   const rctx = raw.getContext('2d'); rctx.drawImage(img, 0, 0, GW, GH);
   const idata = rctx.getImageData(0, 0, GW, GH), d = idata.data;
   for (let i = 0; i < d.length; i += 4) {
-    let brightness = (d[i] + d[i+1] + d[i+2]) / 3;
-    d[i] = 180; d[i+1] = 220; d[i+2] = 255;
-    d[i+3] = d[i+3] > 50 ? 255 : 0;
+    d[i] = 100; d[i+1] = 200; d[i+2] = 255; // Blue tint
+    d[i+3] = d[i+3] > 40 ? 255 : 0;
   }
   rctx.putImageData(idata, 0, 0);
   const gc = document.createElement('canvas'); gc.width = GW; gc.height = GH;
   const gctx = gc.getContext('2d');
-  gctx.filter = 'blur(4px)'; gctx.globalAlpha = 0.6; gctx.drawImage(raw, 0, 0);
+  gctx.filter = 'blur(5px)'; gctx.globalAlpha = 0.5; gctx.drawImage(raw, 0, 0);
   gctx.filter = 'none'; gctx.globalAlpha = 1; gctx.drawImage(raw, 0, 0);
   return gc;
 }
 
-// --- Positioning ---
+// Latitude constraint: Avoids the poles (keep y between -0.7 and 0.7)
 function fibonacciPos(index, total) {
   const golden = Math.PI * (3 - Math.sqrt(5));
-  const y = 1 - (index / (total - 1 || 1)) * 2;
+  const yRaw = 1 - (index / (total - 1 || 1)) * 2;
+  const y = yRaw * 0.75; // Constraint: signatures never reach the very top or bottom
   const r = Math.sqrt(1 - y * y);
   const theta = golden * index;
-  return { x: r * Math.cos(theta), y: y * 0.9, z: r * Math.sin(theta) };
+  return { x: r * Math.cos(theta), y: y, z: r * Math.sin(theta) };
 }
 
 function repositionAll() {
@@ -119,59 +101,77 @@ function project(fx, fy, fz, currentR) {
   return { sx: cx + rx*sc, sy: cy + ry2*sc, scale: sc, depth: rz2 };
 }
 
-// --- Animation Loop ---
+// Low burning solar flame animation
+function drawSolarFlame(currentR, now) {
+  fctx.clearRect(0, 0, W, H);
+  const time = now * 0.002;
+  
+  // Layer 1: Inner Heat (Static core)
+  const g1 = fctx.createRadialGradient(cx, cy, currentR * 0.8, cx, cy, currentR * 1.1);
+  g1.addColorStop(0, 'rgba(0, 80, 255, 0.4)');
+  g1.addColorStop(1, 'transparent');
+  fctx.fillStyle = g1; fctx.fillRect(0, 0, W, H);
+
+  // Layer 2: Wavy Corona Flares
+  fctx.save();
+  fctx.globalCompositeOperation = 'screen';
+  for(let i=0; i<6; i++) {
+    const angle = (i / 6) * Math.PI * 2 + (time * 0.1);
+    const wave = Math.sin(time + i) * 15;
+    const flareR = currentR * (1.1 + Math.sin(time * 0.5 + i) * 0.1);
+    
+    const g2 = fctx.createRadialGradient(cx, cy, currentR * 0.9, cx, cy, flareR + wave);
+    g2.addColorStop(0, 'rgba(0, 150, 255, 0.2)');
+    g2.addColorStop(0.5, 'rgba(0, 230, 255, 0.1)');
+    g2.addColorStop(1, 'transparent');
+    fctx.fillStyle = g2;
+    fctx.fillRect(0,0,W,H);
+  }
+  fctx.restore();
+}
+
 function animate() {
-  ctx.clearRect(0, 0, W, H);
   const now = Date.now();
 
-  // Handle Pulse Logic
+  // Pulse Logic: Cycle every 8 seconds
   if (now > nextPulseTime && pulseState === "idle") {
     pulseState = "expanding";
     pulseT = 0;
   }
 
   let scaleMultiplier = 1;
-  let globalAlpha = 1;
-
   if (pulseState === "expanding") {
-    pulseT += 0.007; // Speed of expansion
-    const ease = pulseT * pulseT * (3 - 2 * pulseT); // Smoothstep
-    scaleMultiplier = 1 + ease * 4; // Expand 5x
-    globalAlpha = 1 - ease * 0.5; // Slightly transparent when huge
+    pulseT += 0.008; 
+    const ease = pulseT * pulseT * (3 - 2 * pulseT);
+    scaleMultiplier = 1 + ease * 4; 
     if (pulseT >= 1) pulseState = "shrinking";
   } else if (pulseState === "shrinking") {
-    pulseT -= 0.005; // Slower fall back
+    pulseT -= 0.006; 
     const ease = pulseT * pulseT * (3 - 2 * pulseT);
     scaleMultiplier = 1 + ease * 4;
     if (pulseT <= 0) {
       pulseState = "idle";
-      nextPulseTime = now + 15000; // Repeat every 15s
+      nextPulseTime = now + 8000; 
     }
   }
 
   const currentR = baseR * scaleMultiplier;
+  drawSolarFlame(currentR, now);
 
-  if (!isDragging) rotY += 0.002;
+  ctx.clearRect(0, 0, W, H);
+  if (!isDragging) rotY += 0.0025;
 
-  // Background glow intensity increases with pulse
-  const glowAlpha = 0.1 + (scaleMultiplier - 1) * 0.05;
-  fctx.clearRect(0, 0, W, H);
-  const g = fctx.createRadialGradient(cx, cy, 0, cx, cy, currentR * 1.5);
-  g.addColorStop(0, `rgba(0,180,255,${glowAlpha})`);
-  g.addColorStop(1, 'transparent');
-  fctx.fillStyle = g; fctx.fillRect(0, 0, W, H);
-
-  // Render Signatures
   const sorted = signatures.map(s => ({ s, ...project(s.fx, s.fy, s.fz, currentR) })).sort((a,b) => a.depth - b.depth);
   
   sorted.forEach(item => {
     const { s, sx, sy, scale, depth } = item;
-    const sw = (baseR * 0.5) * scale * (scaleMultiplier * 0.5 + 0.5);
+    // Keep signatures readable even when expanding
+    const sw = (baseR * 0.55) * scale * (scaleMultiplier > 1 ? 0.7 : 1);
     const sh = sw * (120/320);
     const depthFade = (depth + currentR) / (2 * currentR);
     
     ctx.save();
-    ctx.globalAlpha = depthFade * globalAlpha;
+    ctx.globalAlpha = depthFade * (pulseState !== "idle" ? 0.7 : 1);
     ctx.globalCompositeOperation = 'screen';
     ctx.drawImage(s.glowCanvas, sx - sw/2, sy - sh/2, sw, sh);
     ctx.restore();
@@ -180,12 +180,10 @@ function animate() {
   requestAnimationFrame(animate);
 }
 
-// --- Interaction & Sync ---
+// --- Sync & Controls ---
 canvas.addEventListener('mousedown', e => { isDragging = true; lastX = e.clientX; });
 window.addEventListener('mouseup', () => isDragging = false);
-window.addEventListener('mousemove', e => {
-  if (isDragging) { rotY += (e.clientX - lastX) * 0.01; lastX = e.clientX; }
-});
+window.addEventListener('mousemove', e => { if (isDragging) { rotY += (e.clientX - lastX) * 0.008; lastX = e.clientX; } });
 
 async function handleNewRow(row) {
   if (seenIds.has(row.id)) return;
@@ -200,15 +198,15 @@ async function handleNewRow(row) {
   img.src = row.image_data;
 }
 
-// Same logic as before for fetching/subscribing
 async function init() {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/signatures?select=*`, {
-    headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` }
-  });
-  const data = await res.json();
-  if (data) data.forEach(row => handleNewRow(row));
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/signatures?select=*`, {
+      headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` }
+    });
+    const data = await res.json();
+    if (data) data.forEach(row => handleNewRow(row));
+  } catch(e) {}
   
-  // Realtime
   const ws = new WebSocket(`wss://gpdkcalhqbvztctoofwh.supabase.co/realtime/v1/websocket?apikey=${SUPABASE_ANON}&vsn=1.0.0`);
   ws.onopen = () => ws.send(JSON.stringify({topic:'realtime:public:signatures', event:'phx_join', payload:{}, ref:'1'}));
   ws.onmessage = e => {
@@ -217,11 +215,11 @@ async function init() {
   };
 }
 
-document.getElementById('clear-btn').onclick = () => document.getElementById('confirm-overlay').classList.add('show');
-document.getElementById('btn-cancel').onclick = () => document.getElementById('confirm-overlay').classList.remove('show');
-document.getElementById('btn-confirm').onclick = async () => {
-  await fetch(`${SUPABASE_URL}/rest/v1/signatures?id=neq.0`, { method:'DELETE', headers:{'apikey':SUPABASE_ANON, 'Authorization':`Bearer ${SUPABASE_ANON}`} });
-  location.reload();
+document.getElementById('clear-btn').onclick = async () => {
+  if(confirm("Wipe Core Data?")) {
+    await fetch(`${SUPABASE_URL}/rest/v1/signatures?id=neq.0`, { method:'DELETE', headers:{'apikey':SUPABASE_ANON, 'Authorization':`Bearer ${SUPABASE_ANON}`} });
+    location.reload();
+  }
 };
 
 init();
