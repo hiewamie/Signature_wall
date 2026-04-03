@@ -74,7 +74,16 @@ const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 
 /* ── Binary bg ── */
 const binBg=document.getElementById('binary-bg');
-let b='';for(let i=0;i<55;i++){for(let j=0;j<130;j++)b+=Math.random()>.5?'1':'0';b+='\n';}binBg.textContent=b;
+function fillBinary(){
+  // Each char is ~7.2px wide at font-size:12px letter-spacing:2px, each row ~14px tall
+  const cols=Math.ceil(window.innerWidth/9)+4;
+  const rows=Math.ceil(window.innerHeight/14)+2;
+  let b='';
+  for(let i=0;i<rows;i++){for(let j=0;j<cols;j++)b+=Math.random()>.5?'1':'0';b+='\n';}
+  binBg.textContent=b;
+}
+fillBinary();
+window.addEventListener('resize',fillBinary);
 
 /* ── Canvas ── */
 const canvas=document.getElementById('sphere-canvas');
