@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Large-Scale Cyber Core</title>
+<title>GAME ON SIGNATURE WALL</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -31,8 +31,8 @@
 <body>
 <canvas id="flame-canvas"></canvas>
 <canvas id="sphere-canvas"></canvas>
-<div id="title"><h1>QUANTUM CORE ACTIVE</h1></div>
-<div id="counter"><span id="sig-count">0</span>&nbsp;NODES</div>
+<div id="title"><h1>GAME ON SIGNATURE WALL</h1></div>
+<div id="counter"><span id="sig-count">0</span>&nbsp;COOL PEOPLE HAVE SIGNED</div>
 <button id="clear-btn"></button>
 
 <script>
@@ -49,15 +49,14 @@ function resize() {
   W = canvas.width = fcanvas.width = window.innerWidth;
   H = canvas.height = fcanvas.height = window.innerHeight;
   cx = W / 2; cy = H / 2;
-  // INCREASED DEFAULT SIZE: baseR is now 0.42 of vertical space
-  baseR = Math.min(W, H) * 0.42; 
+  baseR = Math.min(W, H) * 0.40; 
 }
 window.addEventListener('resize', resize);
 resize();
 
 let pulseT = 0;
 let pulseState = "idle"; 
-let nextPulseTime = Date.now() + 8000; 
+let nextPulseTime = Date.now() + 6000; 
 
 const signatures = [];
 const seenIds = new Set();
@@ -69,13 +68,13 @@ function buildGlowCanvas(img) {
   const rctx = raw.getContext('2d'); rctx.drawImage(img, 0, 0, GW, GH);
   const idata = rctx.getImageData(0, 0, GW, GH), d = idata.data;
   for (let i = 0; i < d.length; i += 4) {
-    d[i] = 160; d[i+1] = 230; d[i+2] = 255;
+    d[i] = 180; d[i+1] = 240; d[i+2] = 255;
     d[i+3] = d[i+3] > 30 ? 255 : 0;
   }
   rctx.putImageData(idata, 0, 0);
   const gc = document.createElement('canvas'); gc.width = GW; gc.height = GH;
   const gctx = gc.getContext('2d');
-  gctx.filter = 'blur(4px)'; gctx.globalAlpha = 0.4; gctx.drawImage(raw, 0, 0);
+  gctx.filter = 'blur(5px)'; gctx.globalAlpha = 0.5; gctx.drawImage(raw, 0, 0);
   gctx.filter = 'none'; gctx.globalAlpha = 1; gctx.drawImage(raw, 0, 0);
   return gc;
 }
@@ -83,7 +82,7 @@ function buildGlowCanvas(img) {
 function fibonacciPos(index, total) {
   const golden = Math.PI * (3 - Math.sqrt(5));
   const yRaw = 1 - (index / (total - 1 || 1)) * 2;
-  const y = yRaw * 0.8; 
+  const y = yRaw * 0.85; 
   const r = Math.sqrt(1 - y * y);
   const theta = golden * index;
   return { x: r * Math.cos(theta), y: y, z: r * Math.sin(theta) };
@@ -96,9 +95,8 @@ function project(fx, fy, fz, currentR) {
   let rx = x*cY - z*sY, rz = x*sY + z*cY;
   let ry2 = y*cX - rz*sX, rz2 = y*sX + rz*cX;
   
-  // Adjusted Camera and FOV for larger default presence
-  const camDist = 650; 
-  const fov = 500;     
+  const camDist = 700; 
+  const fov = 550;     
   
   const sc = fov / (camDist + rz2); 
   
@@ -107,27 +105,8 @@ function project(fx, fy, fz, currentR) {
     sy: cy + ry2 * sc, 
     scale: sc, 
     depth: rz2, 
-    visible: (camDist + rz2) > 15 
+    visible: (camDist + rz2) > 10 
   };
-}
-
-function drawCyberFlame(currentR, now, easeFactor) {
-  fctx.clearRect(0, 0, W, H);
-  const time = now * 0.001;
-  fctx.save();
-  fctx.globalCompositeOperation = 'screen';
-  
-  const flameAlpha = 0.25 * (1 - easeFactor);
-  const outer = currentR * (1.1 + easeFactor * 2.5);
-  
-  const g = fctx.createRadialGradient(cx, cy, currentR * 0.75, cx, cy, outer);
-  g.addColorStop(0, 'rgba(0, 0, 0, 0)');
-  g.addColorStop(0.3, `rgba(0, 50, 150, ${flameAlpha})`);
-  g.addColorStop(1, 'rgba(0, 0, 0, 0)');
-  
-  fctx.fillStyle = g;
-  fctx.beginPath(); fctx.arc(cx, cy, Math.max(0, outer), 0, Math.PI * 2); fctx.fill();
-  fctx.restore();
 }
 
 function animate() {
@@ -144,22 +123,35 @@ function animate() {
     easeFactor = pulseT * pulseT * (3 - 2 * pulseT);
     if (pulseT >= 1) pulseState = "shrinking";
   } else if (pulseState === "shrinking") {
-    pulseT -= 0.006; 
+    pulseT -= 0.007; 
     easeFactor = pulseT * pulseT * (3 - 2 * pulseT);
     if (pulseT <= 0) {
       pulseState = "idle";
-      nextPulseTime = now + 8000; 
+      nextPulseTime = now + 7000; 
     }
   }
 
-  // Expansion multiplier
-  const scaleMultiplier = 1 + easeFactor * 6.5; 
+  // Radius expansion
+  const scaleMultiplier = 1 + easeFactor * 7.0; 
   const currentR = baseR * scaleMultiplier;
   
-  const rotationSpeed = 0.0012 + (easeFactor * 0.03);
+  // High-speed rotation
+  const rotationSpeed = 0.0012 + (easeFactor * 0.04);
   if (!isDragging) rotY += rotationSpeed;
 
-  drawCyberFlame(currentR, now, easeFactor);
+  // Background Flame Fade
+  fctx.clearRect(0, 0, W, H);
+  fctx.save();
+  fctx.globalCompositeOperation = 'screen';
+  const flameAlpha = 0.25 * (1 - easeFactor);
+  const outerF = currentR * (1.1 + easeFactor * 2);
+  const g = fctx.createRadialGradient(cx, cy, currentR * 0.8, cx, cy, outerF);
+  g.addColorStop(0, 'rgba(0,0,0,0)');
+  g.addColorStop(0.3, `rgba(0, 80, 200, ${flameAlpha})`);
+  g.addColorStop(1, 'rgba(0,0,0,0)');
+  fctx.fillStyle = g;
+  fctx.beginPath(); fctx.arc(cx, cy, Math.max(0, outerF), 0, Math.PI * 2); fctx.fill();
+  fctx.restore();
 
   ctx.clearRect(0, 0, W, H);
 
@@ -169,20 +161,23 @@ function animate() {
   sorted.forEach(item => {
     const { s, sx, sy, scale, depth } = item;
     
-    // Size magnification adjusted for larger baseR
-    const sw = (baseR * 0.35) * scale;
+    // COMPOUNDED GROWTH: 
+    // baseR * 0.38 (initial) 
+    // * scale (3D perspective) 
+    // * (1 + easeFactor * 1.5) -> This makes them physically bigger during expansion
+    const sw = (baseR * 0.38) * scale * (1 + easeFactor * 1.5);
     const sh = sw * (120/320);
     
     const depthRatio = (depth + currentR) / (2 * currentR); 
-    const visibility = (1 - easeFactor * 0.15); 
+    const visibility = (1 - easeFactor * 0.1); 
     
     ctx.save();
     ctx.globalAlpha = Math.min(1, depthRatio * 1.8) * visibility;
     ctx.globalCompositeOperation = 'screen';
     
     if (scale > 2.5) {
-        ctx.shadowBlur = 20; 
-        ctx.shadowColor = "#3399ff";
+        ctx.shadowBlur = 25; 
+        ctx.shadowColor = "#66b3ff";
     }
     
     ctx.drawImage(s.glowCanvas, sx - sw/2, sy - sh/2, sw, sh);
