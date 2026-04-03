@@ -422,5 +422,206 @@ document.getElementById('btn-confirm').addEventListener('click',async()=>{
 
 loadExisting().then(()=>{subscribeRealtime();setInterval(pollForNew,5000);});
 </script>
+  <!-- ══════════════ MASCOT OVERLAY ══════════════ -->
+<style>
+#mascot-wrap {
+  position: fixed; bottom: 0; z-index: 50; pointer-events: none;
+  width: 320px; height: 420px; transition: left 0s, right 0s;
+}
+#mascot-wrap.side-left  { left: 0; right: auto; }
+#mascot-wrap.side-right { right: 0; left: auto; }
+#mascot-img {
+  position: absolute; bottom: 0; width: 320px;
+  filter:
+    drop-shadow(-12px 0 35px rgba(0,229,255,0.45))
+    drop-shadow(0 -8px 25px rgba(100,40,255,0.30))
+    drop-shadow(0 20px 18px rgba(0,0,0,0.7));
+  transform-origin: bottom center;
+  will-change: transform;
+}
+#mascot-wrap.side-left  #mascot-img { left: 0; }
+#mascot-wrap.side-right #mascot-img { right: 0; }
+#mascot-bubble {
+  position: absolute; top: 30px;
+  background: rgba(2,10,28,0.93);
+  border: 1.5px solid rgba(0,229,255,0.55);
+  border-radius: 14px; padding: 10px 20px;
+  font-family: 'Orbitron', monospace; font-size: 13px;
+  font-weight: 700; color: #00e5ff; white-space: nowrap;
+  text-shadow: 0 0 14px rgba(0,229,255,0.9);
+  box-shadow: 0 0 22px rgba(0,229,255,0.18), inset 0 0 10px rgba(0,229,255,0.06);
+  opacity: 0; transform: scale(0.8) translateY(8px);
+  transition: opacity 0.28s ease, transform 0.28s ease;
+}
+#mascot-wrap.side-left  #mascot-bubble { left: 260px; }
+#mascot-wrap.side-right #mascot-bubble { right: 260px; }
+#mascot-bubble.show { opacity: 1; transform: scale(1) translateY(0); }
+#mascot-bubble::after {
+  content: ''; position: absolute; bottom: -9px;
+  border: 9px solid transparent; border-top-color: rgba(0,229,255,0.55);
+  border-bottom: 0;
+}
+#mascot-wrap.side-left  #mascot-bubble::after { left: 20px; }
+#mascot-wrap.side-right #mascot-bubble::after { right: 20px; }
+</style>
+
+<div id="mascot-wrap" class="side-right">
+  <img id="mascot-img"
+    src="662290127_2659513921085983_2892569749052643846_n-removebg-preview.png"
+    alt="mascot" />
+  <div id="mascot-bubble"></div>
+</div>
+
+<script>
+(function(){
+  const wrap   = document.getElementById('mascot-wrap');
+  const img    = document.getElementById('mascot-img');
+  const bubble = document.getElementById('mascot-bubble');
+
+  /* ── tweener ── */
+  function tween(from, to, ms, ease, onV, onDone){
+    const t0 = performance.now();
+    (function tick(now){
+      let p = Math.min(1,(now-t0)/ms), e = ease(p);
+      onV(from+(to-from)*e);
+      p < 1 ? requestAnimationFrame(tick) : onDone && onDone();
+    })(t0);
+  }
+  const easeOut  = t => 1-Math.pow(1-t,3);
+  const easeIn   = t => t*t*t;
+  const easeIO   = t => t<.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2;
+
+  /* ── state ── */
+  let side = 'right';   // 'left' | 'right'
+  let slideX = 0;       // px exposed (positive = more visible, regardless of side)
+  let skewY  = 0;       // head tilt degrees
+  let bobPhase = 0, bobRAF = null, bobBase = 0;
+
+  function buildTransform(){
+    const tx = side === 'left' ? slideX : -slideX;
+    if(side === 'left') return `scaleX(-1) translateX(${-slideX}px) skewY(${skewY}deg)`;
+    return `translateX(${-slideX}px) skewY(${skewY}deg)`;
+  }
+  function commit(){ img.style.transform = buildTransform(); }
+
+  function slideTo(px, ms, ease, cb){
+    const from = slideX;
+    tween(from, px, ms, ease, v=>{ slideX=v; commit(); }, cb);
+  }
+  function skewTo(deg, ms, ease, cb){
+    const from = skewY;
+    tween(from, deg, ms, ease, v=>{ skewY=v; commit(); }, cb);
+  }
+  function startBob(){
+    bobPhase = 0;
+    function tick(){ bobPhase+=0.045; img.style.marginBottom=(Math.sin(bobPhase)*5)+'px'; bobRAF=requestAnimationFrame(tick); }
+    tick();
+  }
+  function stopBob(cb){ cancelAnimationFrame(bobRAF); img.style.marginBottom='0px'; cb&&cb(); }
+
+  function showBubble(txt){ bubble.textContent=txt; bubble.classList.add('show'); }
+  function hideBubble(){ bubble.classList.remove('show'); }
+
+  function setSide(s){
+    side = s;
+    wrap.className = 'side-'+s;
+    slideX = 0; skewY = 0;
+    commit();
+  }
+
+  /* ══ BEHAVIOR A: peek-look-retreat ══ */
+  function behaviorPeek(nextSide, done){
+    setSide(nextSide);
+    // peek a little
+    slideTo(90, 550, easeOut, ()=>{
+      // look one way then other
+      skewTo(7, 420, easeIO, ()=>{
+        skewTo(-7, 600, easeIO, ()=>{
+          skewTo(0, 380, easeIO, ()=>{
+            setTimeout(()=> slideTo(0, 620, easeIn, done), 500);
+          });
+        });
+      });
+    });
+  }
+
+  /* ══ BEHAVIOR B: come out + WAVE ══ */
+  function behaviorWave(nextSide, done){
+    setSide(nextSide);
+    // sly peek first
+    slideTo(75, 500, easeOut, ()=>{
+      setTimeout(()=>{
+        // slide out fully
+        slideTo(215, 750, easeOut, ()=>{
+          startBob();
+          showBubble('COME JOIN US !! 👋');
+          // wave via skew oscillation
+          let n = 0;
+          function wave(){
+            if(n > 6){ skewTo(0,300,easeIO,()=>{ hideBubble(); stopBob(()=>{ setTimeout(()=> slideTo(0,750,easeIn,done),300); }); }); return; }
+            skewTo(n%2===0?4:-4, 200, easeIO, ()=>{ n++; wave(); });
+          }
+          wave();
+        });
+      }, 400);
+    });
+  }
+
+  /* ══ BEHAVIOR C: sly-peek + WHISPER ══ */
+  function behaviorWhisper(nextSide, done){
+    setSide(nextSide);
+    // slow sly slide
+    slideTo(65, 800, easeOut, ()=>{
+      // suspicious look-around
+      let checks = 0;
+      function lookAround(){
+        if(checks >= 4){
+          // slide out for whisper
+          slideTo(220, 600, easeOut, ()=>{
+            startBob();
+            showBubble('✦ we have free lucky draw ✦');
+            // nervous look-around while whispering
+            let w = 0;
+            function nervousLook(){
+              if(w > 5){
+                hideBubble();
+                stopBob(()=>{ slideTo(0, 800, easeIn, done); });
+                return;
+              }
+              skewTo(w%2===0?5:-3, 300, easeIO, ()=>{ w++; nervousLook(); });
+            }
+            setTimeout(nervousLook, 600);
+          });
+          return;
+        }
+        skewTo(checks%2===0?6:-6, 380, easeIO, ()=>{ checks++; lookAround(); });
+      }
+      lookAround();
+    });
+  }
+
+  /* ══ SEQUENCE: cycle through all 3, alternating sides ══ */
+  const sequence = [
+    { fn: behaviorWave,    side: 'right' },
+    { fn: behaviorWhisper, side: 'left'  },
+    { fn: behaviorPeek,    side: 'right' },
+    { fn: behaviorPeek,    side: 'left'  },
+    { fn: behaviorWave,    side: 'left'  },
+    { fn: behaviorWhisper, side: 'right' },
+  ];
+  let seqIdx = 0;
+
+  function runNext(){
+    const {fn, side: s} = sequence[seqIdx % sequence.length];
+    seqIdx++;
+    fn(s, ()=>{
+      // random pause between 4–8 seconds
+      setTimeout(runNext, 4000 + Math.random()*4000);
+    });
+  }
+
+  setTimeout(runNext, 2000);
+})();
+</script>
 </body>
 </html>
