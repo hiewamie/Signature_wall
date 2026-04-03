@@ -60,16 +60,11 @@
     <div id="pad-wrapper">
       <div id="pad-hint">SIGN HERE</div>
       <canvas id="signature-pad"></canvas>
-    </div>
-    <input id="name-input" type="text" placeholder="Your Name (Optional)" maxlength="24">
-    <div class="btn-row">
-      <button class="btn btn-clear" onclick="clearPad()">CLEAR</button>
-      <button class="btn btn-submit" id="submit-btn" onclick="submitSig()">SUBMIT</button>
-    </div>
+    
   </div>
   <div id="success">
-    <h2 style="font-family:'Orbitron';color:var(--cyan)">SUBMITTED</h2>
-    <p style="color:white;opacity:0.6;margin-top:10px">PERFECT</p>
+    <h2 style="font-family:'Orbitron';color:var(--cyan)">PERFECT</h2>
+    <p style="color:white;opacity:0.6;margin-top:10px">- Your mark is made - </p>
     <button class="btn btn-clear" style="margin-top:25px" onclick="resetForm()">NEW SIGNATURE</button>
   </div>
 </div>
