@@ -37,12 +37,39 @@
   #status-dot { width: 6px; height: 6px; border-radius: 50%; background: #2ecc71; animation: pulse 2s infinite; }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
 
-  /* Announcement overlay */
+  /* Hidden clear button — invisible 48x48 zone in top-right corner */
+  #clear-btn {
+    position: fixed; top: 0; right: 0; width: 48px; height: 48px;
+    z-index: 100; cursor: default; background: transparent; border: none; outline: none;
+  }
+
+  /* Confirm dialog */
+  #confirm-overlay {
+    display: none; position: fixed; inset: 0; z-index: 300;
+    background: rgba(0,0,0,0.75); align-items: center; justify-content: center;
+  }
+  #confirm-overlay.show { display: flex; }
+  #confirm-box {
+    background: #080c1a; border: 1px solid rgba(0,229,255,0.3);
+    border-radius: 12px; padding: 32px 40px; text-align: center;
+    font-family: 'Orbitron', monospace;
+  }
+  #confirm-box p { color: rgba(255,255,255,0.65); font-size: 13px; letter-spacing: 0.12em; margin-bottom: 24px; }
+  #confirm-box .btns { display: flex; gap: 16px; justify-content: center; }
+  #confirm-box button {
+    padding: 10px 28px; border-radius: 8px; font-family: 'Orbitron', monospace;
+    font-size: 11px; letter-spacing: 0.15em; cursor: pointer; border: none;
+  }
+  #btn-confirm { background: rgba(0,229,255,0.12); color: var(--cyan); border: 1px solid rgba(0,229,255,0.35); }
+  #btn-confirm:hover { background: rgba(0,229,255,0.22); }
+  #btn-cancel  { background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.35); border: 1px solid rgba(255,255,255,0.1); }
+  #btn-cancel:hover { background: rgba(255,255,255,0.09); }
+
+  /* Announcement */
   #announce {
     position: fixed; top: 50%; left: 50%;
-    transform: translate(-50%, -50%) scale(0.8);
-    z-index: 200; text-align: center; pointer-events: none;
-    opacity: 0;
+    transform: translate(-50%,-50%) scale(0.8);
+    z-index: 200; text-align: center; pointer-events: none; opacity: 0;
   }
   #announce.show { animation: announceAnim 3.5s ease forwards; }
   #announce-sig {
@@ -61,15 +88,14 @@
     72%  { opacity: 1; transform: translate(-50%,-50%) scale(1); }
     100% { opacity: 0; transform: translate(-50%,-90%) scale(0.6); }
   }
-
   .ripple {
     position: fixed; border-radius: 50%;
     border: 1.5px solid var(--cyan); pointer-events: none;
     animation: rippleAnim 1.4s ease-out forwards; z-index: 5;
   }
   @keyframes rippleAnim {
-    from { width: 0; height: 0; opacity: 0.8; transform: translate(-50%,-50%); }
-    to   { width: 600px; height: 600px; opacity: 0; transform: translate(-50%,-50%); }
+    from { width:0; height:0; opacity:0.8; transform:translate(-50%,-50%); }
+    to   { width:600px; height:600px; opacity:0; transform:translate(-50%,-50%); }
   }
 </style>
 </head>
@@ -79,6 +105,19 @@
 <div id="title"><h1>电子签名签到</h1><p>ELECTRONIC SIGNATURE WALL</p></div>
 <div id="counter"><span id="sig-count">0</span>&nbsp;&nbsp;SIGNATURES</div>
 <div id="status"><div id="status-dot"></div>LIVE</div>
+
+<button id="clear-btn"></button>
+
+<div id="confirm-overlay">
+  <div id="confirm-box">
+    <p>CLEAR ALL SIGNATURES?</p>
+    <div class="btns">
+      <button id="btn-confirm">CLEAR</button>
+      <button id="btn-cancel">CANCEL</button>
+    </div>
+  </div>
+</div>
+
 <div id="announce">
   <img id="announce-sig" src="" alt="" />
   <div id="announce-name"></div>
@@ -91,158 +130,209 @@ const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 // Binary background
 const binBg = document.getElementById('binary-bg');
 let b = '';
-for (let i = 0; i < 55; i++) { for (let j = 0; j < 130; j++) b += Math.random() > 0.5 ? '1' : '0'; b += '\n'; }
+for (let i=0; i<55; i++) { for (let j=0; j<130; j++) b += Math.random()>0.5?'1':'0'; b+='\n'; }
 binBg.textContent = b;
 
-// Canvas setup
+// Canvas
 const canvas = document.getElementById('sphere-canvas');
 const ctx = canvas.getContext('2d');
 let W, H, cx, cy, R;
-function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; cx = W/2; cy = H/2; R = Math.min(W,H)*0.33; }
+function resize() { W=canvas.width=window.innerWidth; H=canvas.height=window.innerHeight; cx=W/2; cy=H/2; R=Math.min(W,H)*0.33; }
 resize(); window.addEventListener('resize', resize);
 
-// Signatures stored as unit-sphere coords (fx, fy, fz)
-const signatures = [];
-let rotY = 0, rotX = 0.28;
-let isDragging = false, lastMX = 0, lastMY = 0;
-canvas.addEventListener('mousedown', e => { isDragging=true; lastMX=e.clientX; lastMY=e.clientY; });
-canvas.addEventListener('mousemove', e => { if(!isDragging)return; rotY+=(e.clientX-lastMX)*0.005; rotX+=(e.clientY-lastMY)*0.003; lastMX=e.clientX; lastMY=e.clientY; });
-canvas.addEventListener('mouseup', ()=>isDragging=false);
-canvas.addEventListener('mouseleave', ()=>isDragging=false);
+// ── Glow processor ────────────────────────────────────────────────────────────
+// Converts any signature image into a luminous white/cyan glowing canvas
+const glowCache = new Map();
 
-// Touch support
-canvas.addEventListener('touchstart', e => { isDragging=true; lastMX=e.touches[0].clientX; lastMY=e.touches[0].clientY; });
-canvas.addEventListener('touchmove', e => { if(!isDragging)return; e.preventDefault(); rotY+=(e.touches[0].clientX-lastMX)*0.005; rotX+=(e.touches[0].clientY-lastMY)*0.003; lastMX=e.touches[0].clientX; lastMY=e.touches[0].clientY; }, { passive:false });
-canvas.addEventListener('touchend', ()=>isDragging=false);
+function buildGlowCanvas(img) {
+  const GW = 320, GH = 120;
 
-// Project a 3D point → 2D screen coords
-function project(fx, fy, fz) {
-  let x = fx * R, y = fy * R, z = fz * R;
-  const cY = Math.cos(rotY), sY = Math.sin(rotY);
-  let rx = x * cY - z * sY;
-  let rz = x * sY + z * cY;
-  let ry = y;
-  const cX = Math.cos(rotX), sX = Math.sin(rotX);
-  let ry2 = ry * cX - rz * sX;
-  let rz2 = ry * sX + rz * cX;
-  const fov = 900;
-  const sc = fov / (fov + rz2);
-  return { sx: cx + rx * sc, sy: cy + ry2 * sc, scale: sc, depth: rz2 };
+  // Step 1: extract ink mask
+  const raw = document.createElement('canvas');
+  raw.width = GW; raw.height = GH;
+  const rctx = raw.getContext('2d');
+  rctx.drawImage(img, 0, 0, GW, GH);
+  const idata = rctx.getImageData(0, 0, GW, GH);
+  const d = idata.data;
+
+  // Detect if source is dark-on-light
+  let cornerSum = 0;
+  [[0,0],[GW-1,0],[0,GH-1],[GW-1,GH-1]].forEach(([x,y]) => {
+    const i=(y*GW+x)*4; cornerSum+=(d[i]+d[i+1]+d[i+2])/3;
+  });
+  const darkOnLight = (cornerSum/4) > 180;
+
+  for (let i=0; i<d.length; i+=4) {
+    const r=d[i], g=d[i+1], bl=d[i+2], a=d[i+3];
+    let ink;
+    if (a < 10) { d[i+3]=0; continue; }
+    if (darkOnLight) {
+      ink = 1 - (r+g+bl)/(3*255);
+    } else {
+      ink = a/255;
+    }
+    if (ink < 0.06) { d[i+3]=0; continue; }
+    const t = Math.min(1, ink*1.5);
+    // White-to-cyan gradient based on ink density
+    d[i]   = Math.round(180 + 75*t);
+    d[i+1] = Math.round(220 + 35*t);
+    d[i+2] = 255;
+    d[i+3] = Math.round(255 * Math.min(1, ink*1.8));
+  }
+  rctx.putImageData(idata, 0, 0);
+
+  // Step 2: composite glow layers
+  const gc = document.createElement('canvas');
+  gc.width = GW; gc.height = GH;
+  const gctx = gc.getContext('2d');
+
+  // Wide outer glow
+  gctx.save();
+  gctx.filter = 'blur(9px)';
+  gctx.globalAlpha = 0.45;
+  gctx.drawImage(raw, 0, 0);
+  gctx.restore();
+
+  // Medium glow
+  gctx.save();
+  gctx.filter = 'blur(4px)';
+  gctx.globalAlpha = 0.65;
+  gctx.drawImage(raw, 0, 0);
+  gctx.restore();
+
+  // Tight inner glow
+  gctx.save();
+  gctx.filter = 'blur(1.5px)';
+  gctx.globalAlpha = 0.85;
+  gctx.drawImage(raw, 0, 0);
+  gctx.restore();
+
+  // Sharp core
+  gctx.save();
+  gctx.filter = 'none';
+  gctx.globalAlpha = 1;
+  gctx.drawImage(raw, 0, 0);
+  gctx.restore();
+
+  return gc;
 }
 
-function fibonacciPos(index, total) {
-  const golden = Math.PI * (3 - Math.sqrt(5));
-  const y = 1 - ((index + 0.5) / (Math.max(total, 1))) * 2;
-  const r = Math.sqrt(Math.max(0, 1 - y * y));
-  const theta = golden * index;
-  return { x: r * Math.cos(theta), y, z: r * Math.sin(theta) };
+// Signatures state
+const signatures = [];
+const seenIds = new Set();
+let rotY=0, rotX=0.28, isDragging=false, lastMX=0, lastMY=0;
+
+canvas.addEventListener('mousedown', e=>{isDragging=true;lastMX=e.clientX;lastMY=e.clientY;});
+canvas.addEventListener('mousemove', e=>{if(!isDragging)return;rotY+=(e.clientX-lastMX)*0.005;rotX+=(e.clientY-lastMY)*0.003;lastMX=e.clientX;lastMY=e.clientY;});
+canvas.addEventListener('mouseup', ()=>isDragging=false);
+canvas.addEventListener('mouseleave', ()=>isDragging=false);
+canvas.addEventListener('touchstart', e=>{isDragging=true;lastMX=e.touches[0].clientX;lastMY=e.touches[0].clientY;});
+canvas.addEventListener('touchmove', e=>{if(!isDragging)return;e.preventDefault();rotY+=(e.touches[0].clientX-lastMX)*0.005;rotX+=(e.touches[0].clientY-lastMY)*0.003;lastMX=e.touches[0].clientX;lastMY=e.touches[0].clientY;},{passive:false});
+canvas.addEventListener('touchend', ()=>isDragging=false);
+
+function project(fx,fy,fz) {
+  let x=fx*R,y=fy*R,z=fz*R;
+  const cY=Math.cos(rotY),sY=Math.sin(rotY);
+  let rx=x*cY-z*sY,rz=x*sY+z*cY,ry=y;
+  const cX=Math.cos(rotX),sX=Math.sin(rotX);
+  let ry2=ry*cX-rz*sX,rz2=ry*sX+rz*cX;
+  const fov=900,sc=fov/(fov+rz2);
+  return {sx:cx+rx*sc,sy:cy+ry2*sc,scale:sc,depth:rz2};
+}
+
+function fibonacciPos(index,total) {
+  const golden=Math.PI*(3-Math.sqrt(5));
+  const y=1-((index+0.5)/(Math.max(total,1)))*2;
+  const r=Math.sqrt(Math.max(0,1-y*y));
+  const theta=golden*index;
+  return {x:r*Math.cos(theta),y,z:r*Math.sin(theta)};
 }
 
 function repositionAll() {
-  const total = signatures.length;
-  signatures.forEach((s, i) => {
-    const p = fibonacciPos(i, total);
-    s.fx = p.x; s.fy = p.y; s.fz = p.z;
-  });
+  const total=signatures.length;
+  signatures.forEach((s,i)=>{const p=fibonacciPos(i,total);s.fx=p.x;s.fy=p.y;s.fz=p.z;});
 }
 
 function addToSphere(dataURL, name) {
   const img = new Image();
+  img.onload = () => {
+    const key = dataURL.substring(0,80);
+    if (!glowCache.has(key)) glowCache.set(key, buildGlowCanvas(img));
+    signatures.push({ glowCanvas: glowCache.get(key), name, fx:0, fy:0, fz:1, opacity:0 });
+    repositionAll();
+    document.getElementById('sig-count').textContent = signatures.length;
+  };
   img.src = dataURL;
-  signatures.push({ img, name, fx: 0, fy: 0, fz: 1, opacity: 0 });
-  repositionAll();
-  document.getElementById('sig-count').textContent = signatures.length;
 }
 
+// ── Wireframe — front/back split for 3D depth feel ───────────────────────────
 function drawWireframe() {
   ctx.save();
-  // Thicker, more visible lines
-  ctx.strokeStyle = 'rgba(0,229,255,0.18)';
-  ctx.lineWidth = 1.2;
-  // Latitude lines
-  for (let i = 0; i <= 8; i++) {
-    const phi = (i / 8) * Math.PI;
-    ctx.beginPath(); let first = true;
-    for (let j = 0; j <= 64; j++) {
-      const theta = (j / 64) * Math.PI * 2;
-      const fx = Math.sin(phi) * Math.cos(theta);
-      const fy = Math.cos(phi);
-      const fz = Math.sin(phi) * Math.sin(theta);
-      const p = project(fx, fy, fz);
-      if (p.depth > -R * 0.45) { if (first) { ctx.moveTo(p.sx, p.sy); first = false; } else ctx.lineTo(p.sx, p.sy); } else first = true;
+  ctx.lineWidth = 1.0;
+
+  function drawLines(frontHalf) {
+    ctx.strokeStyle = frontHalf ? 'rgba(0,229,255,0.20)' : 'rgba(0,180,255,0.07)';
+    for (let i=0; i<=8; i++) {
+      const phi=(i/8)*Math.PI;
+      ctx.beginPath(); let first=true;
+      for (let j=0; j<=64; j++) {
+        const theta=(j/64)*Math.PI*2;
+        const p=project(Math.sin(phi)*Math.cos(theta),Math.cos(phi),Math.sin(phi)*Math.sin(theta));
+        const onFront = p.depth > 0;
+        if (onFront===frontHalf) { if(first){ctx.moveTo(p.sx,p.sy);first=false;}else ctx.lineTo(p.sx,p.sy); } else first=true;
+      }
+      ctx.stroke();
     }
-    ctx.stroke();
-  }
-  // Longitude lines
-  for (let i = 0; i < 12; i++) {
-    const theta = (i / 12) * Math.PI * 2;
-    ctx.beginPath(); let first = true;
-    for (let j = 0; j <= 40; j++) {
-      const phi = (j / 40) * Math.PI;
-      const fx = Math.sin(phi) * Math.cos(theta);
-      const fy = Math.cos(phi);
-      const fz = Math.sin(phi) * Math.sin(theta);
-      const p = project(fx, fy, fz);
-      if (p.depth > -R * 0.45) { if (first) { ctx.moveTo(p.sx, p.sy); first = false; } else ctx.lineTo(p.sx, p.sy); } else first = true;
+    for (let i=0; i<12; i++) {
+      const theta=(i/12)*Math.PI*2;
+      ctx.beginPath(); let first=true;
+      for (let j=0; j<=40; j++) {
+        const phi=(j/40)*Math.PI;
+        const p=project(Math.sin(phi)*Math.cos(theta),Math.cos(phi),Math.sin(phi)*Math.sin(theta));
+        const onFront = p.depth > 0;
+        if (onFront===frontHalf) { if(first){ctx.moveTo(p.sx,p.sy);first=false;}else ctx.lineTo(p.sx,p.sy); } else first=true;
+      }
+      ctx.stroke();
     }
-    ctx.stroke();
   }
+  drawLines(false); // back (dim)
+  drawLines(true);  // front (bright)
   ctx.restore();
 }
 
+// ── Render loop ───────────────────────────────────────────────────────────────
 function animate() {
-  ctx.clearRect(0, 0, W, H);
-  if (!isDragging) rotY += 0.003;
+  ctx.clearRect(0,0,W,H);
+  if (!isDragging) rotY+=0.003;
 
-  // Ambient glow
-  const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 1.2);
-  g.addColorStop(0, 'rgba(26,108,255,0.05)');
-  g.addColorStop(0.6, 'rgba(0,229,255,0.02)');
-  g.addColorStop(1, 'transparent');
-  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  const g=ctx.createRadialGradient(cx,cy,0,cx,cy,R*1.2);
+  g.addColorStop(0,'rgba(26,108,255,0.05)');
+  g.addColorStop(0.6,'rgba(0,229,255,0.02)');
+  g.addColorStop(1,'transparent');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
 
   drawWireframe();
 
-  // Project all signatures, sort back-to-front
-  const projected = signatures.map(s => {
-    const p = project(s.fx, s.fy, s.fz);
-    return { s, ...p };
-  }).sort((a, b) => a.depth - b.depth);
+  const projected = signatures.map(s=>{const p=project(s.fx,s.fy,s.fz);return{s,...p};}).sort((a,b)=>a.depth-b.depth);
 
   for (const item of projected) {
-    const { s, sx, sy, scale, depth } = item;
-    if (!s.img.complete || s.img.naturalWidth === 0) continue;
-    if (s.opacity < 1) s.opacity = Math.min(1, s.opacity + 0.025);
+    const {s,sx,sy,scale,depth} = item;
+    if (!s.glowCanvas) continue;
+    if (s.opacity<1) s.opacity=Math.min(1,s.opacity+0.025);
 
-    // Smoother depth fade: front = 1.0, back = 0.15 (wider visible range)
-    const depthFade = Math.max(0.15, (depth + R) / (2 * R));
-    const combinedAlpha = depthFade * s.opacity;
+    // Front fully bright, back fades to 10%
+    const depthNorm=(depth+R)/(2*R);
+    const depthFade=0.10+0.90*Math.pow(depthNorm,1.3);
+    const alpha=depthFade*s.opacity;
 
-    // ── Larger signature: 180px wide base ──
-    const SIG_W = 180;
-    const SIG_H = 70;
-    const w = SIG_W * scale;
-    const h = SIG_H * scale;
-    const pad = 8 * scale;
-    const r = 6 * scale; // pill corner radius
+    // Large signature, no background — pure glowing strokes
+    const SIG_W=210*scale;
+    const SIG_H=78*scale;
 
     ctx.save();
-    ctx.globalAlpha = combinedAlpha;
-
-    // Dark pill background so sig is readable against the wireframe
-    ctx.beginPath();
-    ctx.roundRect(sx - w/2 - pad, sy - h/2 - pad, w + pad*2, h + pad*2, r);
-    ctx.fillStyle = 'rgba(4, 8, 24, 0.62)';
-    ctx.fill();
-
-    // Subtle cyan border on the pill
-    ctx.strokeStyle = `rgba(0,229,255,${0.35 * depthFade})`;
-    ctx.lineWidth = 0.8 * scale;
-    ctx.stroke();
-
-    // Draw the signature image itself
-    ctx.drawImage(s.img, sx - w/2, sy - h/2, w, h);
-
+    ctx.globalAlpha=alpha;
+    ctx.globalCompositeOperation='screen';  // blends glow into dark bg naturally
+    ctx.drawImage(s.glowCanvas, sx-SIG_W/2, sy-SIG_H/2, SIG_W, SIG_H);
     ctx.restore();
   }
 
@@ -250,108 +340,78 @@ function animate() {
 }
 animate();
 
-// Show new signature announcement
+// ── Announcement ──────────────────────────────────────────────────────────────
 function showAnnouncement(dataURL, name) {
-  const ann = document.getElementById('announce');
-  document.getElementById('announce-sig').src = dataURL;
-  document.getElementById('announce-name').textContent = name ? `— ${name}` : '';
-  ann.classList.remove('show');
-  void ann.offsetWidth;
-  ann.classList.add('show');
-
-  const el = document.createElement('div');
-  el.className = 'ripple';
-  el.style.left = cx + 'px';
-  el.style.top = cy + 'px';
-  document.body.appendChild(el);
-  setTimeout(() => el.remove(), 1500);
+  const ann=document.getElementById('announce');
+  document.getElementById('announce-sig').src=dataURL;
+  document.getElementById('announce-name').textContent=name?`— ${name}`:'';
+  ann.classList.remove('show'); void ann.offsetWidth; ann.classList.add('show');
+  const el=document.createElement('div'); el.className='ripple';
+  el.style.left=cx+'px'; el.style.top=cy+'px';
+  document.body.appendChild(el); setTimeout(()=>el.remove(),1500);
 }
 
-const seenIds = new Set();
+// ── Hidden clear button ───────────────────────────────────────────────────────
+document.getElementById('clear-btn').addEventListener('click', ()=>{
+  document.getElementById('confirm-overlay').classList.add('show');
+});
+document.getElementById('btn-cancel').addEventListener('click', ()=>{
+  document.getElementById('confirm-overlay').classList.remove('show');
+});
+document.getElementById('btn-confirm').addEventListener('click', async ()=>{
+  document.getElementById('confirm-overlay').classList.remove('show');
+  signatures.length=0;
+  glowCache.clear();
+  seenIds.clear();
+  document.getElementById('sig-count').textContent='0';
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/signatures?id=neq.00000000-0000-0000-0000-000000000000`,{
+      method:'DELETE',
+      headers:{'apikey':SUPABASE_ANON,'Authorization':`Bearer ${SUPABASE_ANON}`,'Content-Type':'application/json','Prefer':'return=minimal'}
+    });
+  } catch(e){ console.warn('clear error',e); }
+});
 
+// ── Supabase ──────────────────────────────────────────────────────────────────
 async function loadExisting() {
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/signatures?select=*&order=created_at.asc`, {
-      headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` }
-    });
-    const data = await res.json();
-    if (Array.isArray(data)) {
-      data.forEach(row => {
-        seenIds.add(row.id);
-        addToSphere(row.image_data, row.name);
-      });
-    }
-  } catch(e) { console.error('loadExisting error:', e); }
+    const res=await fetch(`${SUPABASE_URL}/rest/v1/signatures?select=*&order=created_at.asc`,{headers:{'apikey':SUPABASE_ANON,'Authorization':`Bearer ${SUPABASE_ANON}`}});
+    const data=await res.json();
+    if (Array.isArray(data)) data.forEach(row=>{seenIds.add(row.id);addToSphere(row.image_data,row.name);});
+  } catch(e){console.error('loadExisting error:',e);}
 }
 
-let heartbeatInterval = null;
-let realtimeRef = 1;
-
+let heartbeatInterval=null, realtimeRef=1;
 function subscribeRealtime() {
-  const wsUrl = `wss://gpdkcalhqbvztctoofwh.supabase.co/realtime/v1/websocket?apikey=${SUPABASE_ANON}&vsn=1.0.0`;
-  const ws = new WebSocket(wsUrl);
-
-  ws.onopen = () => {
-    ws.send(JSON.stringify({
-      topic: 'realtime:public:signatures',
-      event: 'phx_join',
-      payload: {
-        config: {
-          broadcast: { self: false },
-          presence: { key: '' },
-          postgres_changes: [{ event: 'INSERT', schema: 'public', table: 'signatures' }]
-        }
-      },
-      ref: String(realtimeRef++)
-    }));
-    heartbeatInterval = setInterval(() => {
-      ws.send(JSON.stringify({ topic: 'phoenix', event: 'heartbeat', payload: {}, ref: String(realtimeRef++) }));
-    }, 25000);
+  const ws=new WebSocket(`wss://gpdkcalhqbvztctoofwh.supabase.co/realtime/v1/websocket?apikey=${SUPABASE_ANON}&vsn=1.0.0`);
+  ws.onopen=()=>{
+    ws.send(JSON.stringify({topic:'realtime:public:signatures',event:'phx_join',payload:{config:{broadcast:{self:false},presence:{key:''},postgres_changes:[{event:'INSERT',schema:'public',table:'signatures'}]}},ref:String(realtimeRef++)}));
+    heartbeatInterval=setInterval(()=>ws.send(JSON.stringify({topic:'phoenix',event:'heartbeat',payload:{},ref:String(realtimeRef++)})),25000);
   };
-
-  ws.onmessage = e => {
-    let msg;
-    try { msg = JSON.parse(e.data); } catch { return; }
-    if (
-      (msg.event === 'INSERT' || msg.event === 'postgres_changes') &&
-      msg.payload?.data?.record
-    ) {
-      handleNewRow(msg.payload.data.record);
-    }
+  ws.onmessage=e=>{
+    let msg; try{msg=JSON.parse(e.data);}catch{return;}
+    if((msg.event==='INSERT'||msg.event==='postgres_changes')&&msg.payload?.data?.record) handleNewRow(msg.payload.data.record);
   };
-
-  ws.onerror = err => console.warn('[Realtime] error', err);
-  ws.onclose = () => {
-    clearInterval(heartbeatInterval);
-    setTimeout(subscribeRealtime, 3000);
-  };
+  ws.onerror=err=>console.warn('[Realtime] error',err);
+  ws.onclose=()=>{clearInterval(heartbeatInterval);setTimeout(subscribeRealtime,3000);};
 }
 
 function handleNewRow(row) {
-  if (!row || seenIds.has(row.id)) return;
+  if(!row||seenIds.has(row.id))return;
   seenIds.add(row.id);
-  showAnnouncement(row.image_data, row.name);
-  setTimeout(() => addToSphere(row.image_data, row.name), 2400);
+  showAnnouncement(row.image_data,row.name);
+  setTimeout(()=>addToSphere(row.image_data,row.name),2400);
 }
 
 async function pollForNew() {
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/signatures?select=*&order=created_at.desc&limit=5`, {
-      headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` }
-    });
-    const data = await res.json();
-    if (Array.isArray(data)) {
-      [...data].reverse().forEach(row => {
-        if (!seenIds.has(row.id)) handleNewRow(row);
-      });
-    }
-  } catch(e) { /* silent */ }
+    const res=await fetch(`${SUPABASE_URL}/rest/v1/signatures?select=*&order=created_at.desc&limit=5`,{headers:{'apikey':SUPABASE_ANON,'Authorization':`Bearer ${SUPABASE_ANON}`}});
+    const data=await res.json();
+    if(Array.isArray(data))[...data].reverse().forEach(row=>{if(!seenIds.has(row.id))handleNewRow(row);});
+  }catch(e){}
 }
 
-loadExisting().then(() => {
-  subscribeRealtime();
-  setInterval(pollForNew, 5000);
-});
+loadExisting().then(()=>{subscribeRealtime();setInterval(pollForNew,5000);});
 </script>
 </body>
 </html>
