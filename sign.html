@@ -152,18 +152,17 @@ function drawSegment(x1, y1, w1, x2, y2, w2) {
   const mx = (x1+x2)/2, my = (y1+y2)/2;
   const mh = Math.max(h1,h2);
 
-  /* ── Body gradient: top-lit 3D ink ── */
-const bg = ctx.createLinearGradient(mx+nx*mh, my+ny*mh, mx-nx*mh, my-ny*mh);
+// Glowing white effect
+const bg = ctx.createRadialGradient(mx, my, 0, mx, my, mh);
 
-// top highlight (slight reflection)
-bg.addColorStop(0,    'rgba(80,80,80,0.9)');
+// bright core
+bg.addColorStop(0, 'rgba(255,255,255,1)');
 
-// main ink body
-bg.addColorStop(0.3,  'rgba(30,30,30,0.95)');
-bg.addColorStop(0.6,  'rgba(10,10,10,0.98)');
+// softer outer glow
+bg.addColorStop(0.5, 'rgba(255,255,255,0.6)');
+bg.addColorStop(1, 'rgba(255,255,255,0)');
 
-// deep core
-bg.addColorStop(1,    'rgba(0,0,0,1)');
+ctx.fillStyle = bg;
 
   ctx.beginPath();
   ctx.moveTo(sTip.x, sTip.y);
