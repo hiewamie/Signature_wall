@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE html> 
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -10,6 +10,7 @@
   :root { --bg: #020818; --cyan: #00e5ff; --blue: #1a6cff; }
   body { background: var(--bg); color: #fff; font-family: 'Noto Sans SC', sans-serif; overflow: hidden; height: 100vh; width: 100vw; }
 
+  /* Deep space background */
   body::before {
     content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
     background:
@@ -17,10 +18,23 @@
       radial-gradient(ellipse 100% 100% at 50% 50%, rgba(2,8,24,1) 0%, transparent 100%);
   }
 
-  #binary-canvas { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+  /* Subtle star field */
+  body::after {
+    content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background-image:
+      radial-gradient(1px 1px at 20% 30%, rgba(255,255,255,0.4) 0%, transparent 100%),
+      radial-gradient(1px 1px at 80% 10%, rgba(255,255,255,0.3) 0%, transparent 100%),
+      radial-gradient(1px 1px at 60% 70%, rgba(255,255,255,0.25) 0%, transparent 100%),
+      radial-gradient(1px 1px at 10% 80%, rgba(255,255,255,0.3) 0%, transparent 100%),
+      radial-gradient(1px 1px at 90% 60%, rgba(255,255,255,0.2) 0%, transparent 100%),
+      radial-gradient(1px 1px at 40% 90%, rgba(255,255,255,0.35) 0%, transparent 100%),
+      radial-gradient(1px 1px at 70% 40%, rgba(255,255,255,0.2) 0%, transparent 100%),
+      radial-gradient(1px 1px at 30% 55%, rgba(255,255,255,0.25) 0%, transparent 100%);
+    background-size: 800px 600px;
+  }
+
+  #sphere-canvas { position: fixed; inset: 0; z-index: 1; }
   #flame-canvas { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
-  #sphere-canvas { position: fixed; inset: 0; z-index: 2; }
-  #fly-canvas { position: fixed; inset: 0; z-index: 3; pointer-events: none; }
 
   #title { position: fixed; top: 28px; left: 50%; transform: translateX(-50%); z-index: 10; text-align: center; pointer-events: none; }
   #title h1 {
@@ -38,204 +52,65 @@
   #counter span { color: var(--cyan); font-size: 20px; font-weight: 700; }
 
   #status { position: fixed; top: 16px; right: 20px; z-index: 10; font-family: 'Orbitron', monospace; font-size: 10px; letter-spacing: 0.15em; color: rgba(255,255,255,0.2); display: flex; align-items: center; gap: 6px; }
-  #status-dot { width: 6px; height: 6px; border-radius: 50%; background: #f39c12; animation: pulse 2s infinite; }
+  #status-dot { width: 6px; height: 6px; border-radius: 50%; background: #2ecc71; animation: pulse 2s infinite; }
   @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.3} }
 
   #clear-btn { position: fixed; top: 0; right: 0; width: 56px; height: 56px; z-index: 100; cursor: default; background: transparent; border: none; outline: none; }
 
+  #confirm-overlay { display: none; position: fixed; inset: 0; z-index: 300; background: rgba(0,0,0,0.78); align-items: center; justify-content: center; }
+  #confirm-overlay.show { display: flex; }
+  #confirm-box { background: #080c1a; border: 1px solid rgba(0,229,255,0.28); border-radius: 14px; padding: 36px 44px; text-align: center; font-family: 'Orbitron', monospace; }
+  #confirm-box p { color: rgba(255,255,255,0.6); font-size: 13px; letter-spacing: 0.12em; margin-bottom: 28px; }
+  #confirm-box .btns { display: flex; gap: 16px; justify-content: center; }
+  #confirm-box button { padding: 11px 30px; border-radius: 8px; font-family: 'Orbitron', monospace; font-size: 11px; letter-spacing: 0.15em; cursor: pointer; border: none; transition: background 0.15s; }
+  #btn-confirm { background: rgba(0,229,255,0.1); color: var(--cyan); border: 1px solid rgba(0,229,255,0.35); }
+  #btn-confirm:hover { background: rgba(0,229,255,0.22); }
+  #btn-cancel { background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.35); border: 1px solid rgba(255,255,255,0.1); }
+  #btn-cancel:hover { background: rgba(255,255,255,0.09); }
+
+  #new-sig-overlay { position: fixed; inset: 0; z-index: 20; pointer-events: none; display: flex; align-items: center; justify-content: center; }
   .ripple { position: fixed; border-radius: 50%; border: 1.5px solid var(--cyan); pointer-events: none; animation: rippleAnim 1.4s ease-out forwards; z-index: 5; }
   @keyframes rippleAnim { from{width:0;height:0;opacity:0.8;transform:translate(-50%,-50%);}to{width:600px;height:600px;opacity:0;transform:translate(-50%,-50%);} }
 </style>
 </head>
 <body>
-<canvas id="binary-canvas"></canvas>
 <canvas id="flame-canvas"></canvas>
 <canvas id="sphere-canvas"></canvas>
-<canvas id="fly-canvas"></canvas>
-
 <div id="title"><h1>GAME ON SIGNATURE WALL</h1><p>BY AMIE</p></div>
 <div id="counter"><span id="sig-count">0</span>&nbsp;&nbsp;SIGNATURES</div>
 <div id="status"><div id="status-dot"></div>LIVE</div>
 <button id="clear-btn"></button>
+<div id="new-sig-overlay"></div>
+<div id="confirm-overlay">
+  <div id="confirm-box">
+    <p>CLEAR ALL SIGNATURES?</p>
+    <div class="btns">
+      <button id="btn-confirm">CLEAR</button>
+      <button id="btn-cancel">CANCEL</button>
+    </div>
+  </div>
+</div>
 
 <script>
 const SUPABASE_URL  = 'https://gpdkcalhqbvztctoofwh.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdwZGtjYWxocWJ2enRjdG9vZndoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxMjIwMTksImV4cCI6MjA5MDY5ODAxOX0.M3B25IWhogS_8hKONXOjcjn4rFaJcBhIYWB77q2Z-Ew';
 
-const canvas = document.getElementById('sphere-canvas'), ctx = canvas.getContext('2d');
-const fcanvas = document.getElementById('flame-canvas'), fctx = fcanvas.getContext('2d');
-const bcanvas = document.getElementById('binary-canvas'), bctx = bcanvas.getContext('2d');
-const flyCanvas = document.getElementById('fly-canvas'), flyCtx = flyCanvas.getContext('2d');
+const canvas = document.getElementById('sphere-canvas');
+const ctx    = canvas.getContext('2d');
+const flameCanvas = document.getElementById('flame-canvas');
+const fctx   = flameCanvas.getContext('2d');
 
-let W, H, cx, cy, baseR, R;
-const bFontSize = 14;
-let binaryColumns = [];
-
+let W, H, cx, cy, R;
 function resize() {
-  W = canvas.width = fcanvas.width = bcanvas.width = flyCanvas.width = innerWidth;
-  H = canvas.height = fcanvas.height = bcanvas.height = flyCanvas.height = innerHeight;
+  W = canvas.width  = flameCanvas.width  = innerWidth;
+  H = canvas.height = flameCanvas.height = innerHeight;
   cx = W / 2; cy = H / 2;
-  baseR = Math.min(W, H) * 0.28;
-  R = baseR;
-  initBinaryRain();
-  initFlameParticles();
+  R  = Math.min(W, H) * 0.33;
 }
+resize();
+window.addEventListener('resize', resize);
 
-// ─── Binary Rain (High Transparency) ──────────────────────────────────────────
-function initBinaryRain() {
-  binaryColumns = [];
-  const cols = Math.floor(W / bFontSize);
-  for (let i = 0; i < cols; i++) {
-    binaryColumns.push({
-      x: i * bFontSize,
-      y: Math.random() * H,
-      speed: 0.3 + Math.random() * 1.2,
-      chars: Array.from({ length: Math.ceil(H / bFontSize) + 15 }, () => Math.random() > 0.5 ? '1' : '0')
-    });
-  }
-}
-
-function drawBinaryRain() {
-  bctx.fillStyle = 'rgba(2, 8, 24, 0.08)';
-  bctx.fillRect(0, 0, W, H);
-  bctx.font = `${bFontSize}px monospace`;
-  
-  for (const col of binaryColumns) {
-    col.y += col.speed;
-    if (col.y > H + bFontSize * 20) col.y = -bFontSize * 10;
-    
-    for (let i = 0; i < col.chars.length; i++) {
-      const charY = col.y - i * bFontSize;
-      if (charY < -bFontSize || charY > H + bFontSize) continue;
-      
-      const fadeProgress = i / col.chars.length;
-      const alpha = 0.08 * (1 - fadeProgress * 0.7); // High transparency
-      const intensity = 1 - fadeProgress * 0.5;
-      
-      bctx.fillStyle = `rgba(0, ${Math.floor(200 * intensity)}, ${Math.floor(255 * intensity)}, ${alpha})`;
-      if (Math.random() < 0.005) col.chars[i] = Math.random() > 0.5 ? '1' : '0';
-      bctx.fillText(col.chars[i], col.x, charY);
-    }
-  }
-}
-
-// ─── Flame Particles (Blue Sun Effect) ────────────────────────────────────────
-let flameParticles = [];
-const NUM_FLAMES = 180;
-
-class FlameParticle {
-  constructor() { this.reset(); }
-  
-  reset() {
-    const angle = Math.random() * Math.PI * 2;
-    this.angle = angle;
-    this.radius = R * (0.92 + Math.random() * 0.12);
-    this.x = cx + Math.cos(angle) * this.radius;
-    this.y = cy + Math.sin(angle) * this.radius;
-    this.size = 3 + Math.random() * 12;
-    this.life = 1;
-    this.decay = 0.004 + Math.random() * 0.008;
-    this.vr = 0.2 + Math.random() * 0.6;
-    this.va = (Math.random() - 0.5) * 0.015;
-    this.flickerSpeed = 0.03 + Math.random() * 0.08;
-    this.flickerOffset = Math.random() * Math.PI * 2;
-  }
-  
-  update(now, currentR) {
-    this.life -= this.decay;
-    if (this.life <= 0) { this.reset(); this.radius = currentR * (0.92 + Math.random() * 0.12); return; }
-    this.radius += this.vr;
-    this.angle += this.va;
-    this.x = cx + Math.cos(this.angle) * this.radius;
-    this.y = cy + Math.sin(this.angle) * this.radius;
-    this.currentSize = this.size * (0.6 + 0.4 * Math.sin(now * this.flickerSpeed + this.flickerOffset));
-  }
-  
-  draw(ctx, now) {
-    const flicker = 0.5 + 0.5 * Math.sin(now * this.flickerSpeed + this.flickerOffset);
-    const alpha = this.life * 0.5 * flicker;
-    
-    const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.currentSize * 2.5);
-    gradient.addColorStop(0, `rgba(220, 250, 255, ${alpha})`);
-    gradient.addColorStop(0.15, `rgba(150, 220, 255, ${alpha * 0.85})`);
-    gradient.addColorStop(0.4, `rgba(50, 150, 255, ${alpha * 0.5})`);
-    gradient.addColorStop(0.7, `rgba(20, 80, 200, ${alpha * 0.25})`);
-    gradient.addColorStop(1, 'rgba(0, 40, 150, 0)');
-    
-    ctx.fillStyle = gradient;
-    ctx.beginPath();
-    ctx.arc(this.x, this.y, this.currentSize * 2.5, 0, Math.PI * 2);
-    ctx.fill();
-  }
-}
-
-function initFlameParticles() {
-  flameParticles = [];
-  for (let i = 0; i < NUM_FLAMES; i++) {
-    const p = new FlameParticle();
-    p.life = Math.random();
-    flameParticles.push(p);
-  }
-}
-
-// ─── Sphere Expansion Animation ───────────────────────────────────────────────
-let sphereScale = 1;
-let expansionPhase = 'idle';
-let expansionStartTime = 0;
-let baseRotSpeed = 0.003;
-let currentRotSpeed = baseRotSpeed;
-
-const EXPANSION_INTERVAL = 5000;
-const EXPANSION_DURATION = 2000;
-const HOLD_DURATION = 1500;
-const SHRINK_DURATION = 1800;
-
-function getMaxScale() {
-  return (Math.max(W, H) * 0.55) / baseR;
-}
-
-function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
-function easeInOutCubic(t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
-
-function updateExpansion(now) {
-  const targetScale = getMaxScale();
-  
-  if (expansionPhase === 'idle') {
-    if (now - expansionStartTime > EXPANSION_INTERVAL) {
-      expansionPhase = 'expanding';
-      expansionStartTime = now;
-    }
-  } else if (expansionPhase === 'expanding') {
-    const elapsed = now - expansionStartTime;
-    const progress = Math.min(1, elapsed / EXPANSION_DURATION);
-    const eased = easeOutCubic(progress);
-    sphereScale = 1 + (targetScale - 1) * eased;
-    currentRotSpeed = baseRotSpeed * (1 + eased * 4);
-    if (progress >= 1) { expansionPhase = 'holding'; expansionStartTime = now; }
-  } else if (expansionPhase === 'holding') {
-    if (now - expansionStartTime > HOLD_DURATION) {
-      expansionPhase = 'shrinking';
-      expansionStartTime = now;
-    }
-  } else if (expansionPhase === 'shrinking') {
-    const elapsed = now - expansionStartTime;
-    const progress = Math.min(1, elapsed / SHRINK_DURATION);
-    const eased = easeInOutCubic(progress);
-    const targetScale = getMaxScale();
-    sphereScale = targetScale - (targetScale - 1) * eased;
-    currentRotSpeed = baseRotSpeed * (1 + (1 - eased) * 4);
-    if (progress >= 1) {
-      sphereScale = 1;
-      currentRotSpeed = baseRotSpeed;
-      expansionPhase = 'idle';
-      expansionStartTime = now;
-    }
-  }
-  
-  R = baseR * sphereScale;
-}
-
-// ─── Glow Canvas Builder ──────────────────────────────────────────────────────
+const glowCache = new Map();
 function buildGlowCanvas(img) {
   const GW = 320, GH = 120;
   const raw = document.createElement('canvas'); raw.width = GW; raw.height = GH;
@@ -252,7 +127,7 @@ function buildGlowCanvas(img) {
     let ink = darkOnLight ? 1 - (r+g+bl)/(3*255) : a/255;
     if (ink < 0.06) { d[i+3] = 0; continue; }
     const t = Math.min(1, ink * 1.5);
-    d[i] = Math.round(180 + 75 * t);
+    d[i]   = Math.round(180 + 75 * t);
     d[i+1] = Math.round(220 + 35 * t);
     d[i+2] = 255;
     d[i+3] = Math.round(255 * Math.min(1, ink * 1.8));
@@ -260,7 +135,7 @@ function buildGlowCanvas(img) {
   rctx.putImageData(idata, 0, 0);
   const gc = document.createElement('canvas'); gc.width = GW; gc.height = GH;
   const gctx = gc.getContext('2d');
-  [[9,0.45],[4,0.65],[1.5,0.85],[0,1]].forEach(([blur, alpha]) => {
+  [[9, 0.45],[4, 0.65],[1.5, 0.85],[0, 1]].forEach(([blur, alpha]) => {
     gctx.save();
     gctx.filter = blur ? `blur(${blur}px)` : 'none';
     gctx.globalAlpha = alpha;
@@ -270,115 +145,152 @@ function buildGlowCanvas(img) {
   return gc;
 }
 
-// ─── Sphere State ─────────────────────────────────────────────────────────────
 const signatures = [];
-const seenIds = new Set();
+const seenIds    = new Set();
 let rotY = 0, rotX = 0.28, isDragging = false, lastMX = 0, lastMY = 0;
 
+const flyQueue = [];
+let flyIn = null;
+const FLY_IN_MS = 600, HOLD_MS = 2000, SHRINK_MS = 900;
+
+function enqueue(glowCanvas, name) {
+  flyQueue.push({ glowCanvas, name });
+  if (!flyIn) dequeue();
+}
+function dequeue() {
+  if (flyQueue.length === 0) { flyIn = null; return; }
+  const next = flyQueue.shift();
+  flyIn = { glowCanvas: next.glowCanvas, name: next.name, phase: 'in', t0: performance.now() };
+}
+function tickFlyIn(now) {
+  if (!flyIn) return;
+  const elapsed = now - flyIn.t0;
+  if (flyIn.phase === 'in') {
+    if (elapsed >= FLY_IN_MS) { flyIn.phase = 'hold'; flyIn.t0 = now; }
+  } else if (flyIn.phase === 'hold') {
+    if (elapsed >= HOLD_MS) { commitToSphere(flyIn.glowCanvas, flyIn.name); flyIn.phase = 'shrink'; flyIn.t0 = now; }
+  } else if (flyIn.phase === 'shrink') {
+    if (elapsed >= SHRINK_MS) { const s = signatures[signatures.length - 1]; if (s) s.opacity = 1; dequeue(); }
+  }
+}
+
+function drawFlyIn(now) {
+  if (!flyIn) return;
+  const elapsed = now - flyIn.t0;
+  const SIG_ASPECT = 120 / 320;
+  const BIG_W = Math.min(W * 0.48, 520);
+  const BIG_H = BIG_W * SIG_ASPECT;
+  let alpha = 1, scl = 1, sx = cx, sy = cy;
+
+  if (flyIn.phase === 'in') {
+    const p = Math.min(1, elapsed / FLY_IN_MS);
+    const ease = 1 - Math.pow(1 - p, 3);
+    alpha = ease; scl = 0.2 + 0.8 * ease;
+    sy = cy + 40 * (1 - ease);
+  } else if (flyIn.phase === 'hold') {
+    alpha = 1; scl = 1 + 0.02 * Math.sin(elapsed * 0.005);
+  } else if (flyIn.phase === 'shrink') {
+    const p = Math.min(1, elapsed / SHRINK_MS);
+    const ease = p * p * (3 - 2 * p);
+    const s = signatures[signatures.length - 1];
+    let tx = cx, ty = cy, tScl = 1;
+    if (s) {
+      const proj = project(s.fx, s.fy, s.fz);
+      tx = proj.sx; ty = proj.sy;
+      const targetW = sigBaseW() * Math.min(proj.scale, 1.15);
+      tScl = targetW / BIG_W;
+    }
+    sx = cx + (tx - cx) * ease; sy = cy + (ty - cy) * ease; scl = 1 + (tScl - 1) * ease; alpha = 1 - ease * 0.3;
+  }
+
+  if (flyIn.phase === 'in' || flyIn.phase === 'hold') {
+    const glowR = BIG_W * scl * 0.9;
+    const spotAlpha = flyIn.phase === 'hold' ? 0.18 + 0.04 * Math.sin(now * 0.004) : alpha * 0.18;
+    const spot = ctx.createRadialGradient(sx, sy, 0, sx, sy, glowR);
+    spot.addColorStop(0, `rgba(0,180,255,${spotAlpha})`);
+    spot.addColorStop(0.5, `rgba(0,80,200,${spotAlpha * 0.4})`);
+    spot.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.save(); ctx.fillStyle = spot; ctx.fillRect(0, 0, W, H); ctx.restore();
+  }
+
+  const dw = BIG_W * scl, dh = BIG_H * scl;
+  ctx.save(); ctx.globalAlpha = alpha; ctx.globalCompositeOperation = 'screen';
+  ctx.drawImage(flyIn.glowCanvas, sx - dw/2, sy - dh/2, dw, dh);
+  ctx.restore();
+}
+
+const sigBaseW   = () => R * 0.58;
 function project(fx, fy, fz) {
   let x = fx * R, y = fy * R, z = fz * R;
   const cY = Math.cos(rotY), sY = Math.sin(rotY);
   let rx = x*cY - z*sY, rz = x*sY + z*cY, ry = y;
   const cX = Math.cos(rotX), sX = Math.sin(rotX);
   let ry2 = ry*cX - rz*sX, rz2 = ry*sX + rz*cX;
-  const fov = 800, sc = fov / (fov + rz2);
-  
-  // 3D depth scale - closer to screen = bigger, farther = smaller
-  const depthScale = 0.5 + 0.7 * ((rz2 + R) / (2 * R));
-  
-  return { sx: cx + rx*sc, sy: cy + ry2*sc, scale: sc, depth: rz2, depthScale };
+  const fov = 900, sc = fov / (fov + rz2);
+  return { sx: cx + rx*sc, sy: cy + ry2*sc, scale: sc, depth: rz2 };
 }
 
 function fibonacciPos(index, total) {
   const golden = Math.PI * (3 - Math.sqrt(5));
-  const yRaw = 1 - ((index + 0.5) / Math.max(total, 1)) * 2;
-  const y = yRaw * 0.85, r = Math.sqrt(Math.max(0, 1 - y*y));
-  return { x: r * Math.cos(golden * index), y, z: r * Math.sin(golden * index) };
+  const yRaw   = 1 - ((index + 0.5) / (Math.max(total, 1))) * 2;
+  const y      = yRaw * 0.85;
+  const r      = Math.sqrt(Math.max(0, 1 - y*y));
+  const theta  = golden * index;
+  return { x: r*Math.cos(theta), y, z: r*Math.sin(theta) };
 }
 
 function repositionAll() {
-  signatures.forEach((s, i) => {
-    const p = fibonacciPos(i, signatures.length);
-    s.fx = p.x; s.fy = p.y; s.fz = p.z;
-  });
+  const total = signatures.length;
+  signatures.forEach((s, i) => { const p = fibonacciPos(i, total); s.fx = p.x; s.fy = p.y; s.fz = p.z; });
 }
 
 function commitToSphere(glowCanvas, name) {
-  const sig = { glowCanvas, name, fx: 0, fy: 0, fz: 1, opacity: 0, hidden: true };
-  signatures.push(sig);
+  signatures.push({ glowCanvas, name, fx: 0, fy: 0, fz: 1, opacity: 0 });
   repositionAll();
   document.getElementById('sig-count').textContent = signatures.length;
-  return sig;
 }
 
-// ─── Fly-in Queue ─────────────────────────────────────────────────────────────
-const FLY_IN_MS = 800, HOLD_MS = 1800, SHRINK_MS = 900;
-const flyQueue = [];
-let flyIn = null;
+canvas.addEventListener('mousedown',  e => { isDragging = true; lastMX = e.clientX; lastMY = e.clientY; });
+canvas.addEventListener('mousemove',  e => { if (!isDragging) return; rotY += (e.clientX - lastMX)*0.005; rotX += (e.clientY - lastMY)*0.003; lastMX = e.clientX; lastMY = e.clientY; });
+canvas.addEventListener('mouseup',    () => isDragging = false);
+canvas.addEventListener('mouseleave', () => isDragging = false);
+canvas.addEventListener('touchstart', e => { isDragging = true; lastMX = e.touches[0].clientX; lastMY = e.touches[0].clientY; });
+canvas.addEventListener('touchmove',  e => { if (!isDragging) return; e.preventDefault(); rotY += (e.touches[0].clientX - lastMX)*0.005; rotX += (e.touches[0].clientY - lastMY)*0.003; lastMX = e.touches[0].clientX; lastMY = e.touches[0].clientY; }, { passive: false });
+canvas.addEventListener('touchend',   () => isDragging = false);
 
-function enqueue(glowCanvas, name) {
-  flyQueue.push({ glowCanvas, name });
-  if (!flyIn) dequeue();
-}
-
-function dequeue() {
-  if (!flyQueue.length) { flyIn = null; return; }
-  const next = flyQueue.shift();
-  flyIn = { glowCanvas: next.glowCanvas, name: next.name, phase: 'in', t0: performance.now(), sigRef: null, shrinkSnap: null };
-  spawnRipple();
-}
-
-function spawnRipple() {
-  const el = document.createElement('div');
-  el.className = 'ripple';
-  el.style.left = cx + 'px';
-  el.style.top = cy + 'px';
-  document.body.appendChild(el);
-  setTimeout(() => el.remove(), 1500);
-}
-
-// ─── Draw Functions ───────────────────────────────────────────────────────────
+/* Removed triangle/rings logic from flame effect */
 function drawFlame(now) {
   fctx.clearRect(0, 0, W, H);
-  
-  // Update and draw flame particles
-  for (const p of flameParticles) {
-    p.update(now, R);
-    p.draw(fctx, now);
-  }
-  
-  // Transparent glass sphere core
-  const coreGlow = fctx.createRadialGradient(cx, cy, 0, cx, cy, R * 1.05);
-  coreGlow.addColorStop(0, 'rgba(20, 60, 120, 0.03)');
-  coreGlow.addColorStop(0.6, 'rgba(30, 80, 150, 0.06)');
-  coreGlow.addColorStop(0.85, 'rgba(0, 120, 200, 0.12)');
-  coreGlow.addColorStop(0.95, 'rgba(0, 180, 255, 0.2)');
-  coreGlow.addColorStop(1, 'rgba(0, 200, 255, 0)');
-  fctx.fillStyle = coreGlow;
-  fctx.beginPath();
-  fctx.arc(cx, cy, R * 1.05, 0, Math.PI * 2);
-  fctx.fill();
-  
-  // Subtle glass edge
-  fctx.strokeStyle = 'rgba(100, 220, 255, 0.12)';
-  fctx.lineWidth = 1.5;
-  fctx.beginPath();
-  fctx.arc(cx, cy, R * 0.98, 0, Math.PI * 2);
-  fctx.stroke();
-  
-  // Inner highlight reflection
-  const hlX = cx - R * 0.35, hlY = cy - R * 0.35;
-  const highlight = fctx.createRadialGradient(hlX, hlY, 0, hlX, hlY, R * 0.35);
-  highlight.addColorStop(0, 'rgba(200, 240, 255, 0.08)');
-  highlight.addColorStop(1, 'rgba(200, 240, 255, 0)');
-  fctx.fillStyle = highlight;
-  fctx.beginPath();
-  fctx.arc(hlX, hlY, R * 0.35, 0, Math.PI * 2);
-  fctx.fill();
+  const t = now * 0.001;
+
+  /* Outermost soft blue halo */
+  const halo = fctx.createRadialGradient(cx, cy, R * 0.6, cx, cy, R * 1.9);
+  halo.addColorStop(0,   'rgba(0,100,255,0.0)');
+  halo.addColorStop(0.4, 'rgba(0,120,255,0.06)');
+  halo.addColorStop(0.75,'rgba(0,180,255,0.12)');
+  halo.addColorStop(0.88,'rgba(0,220,255,0.22)');
+  halo.addColorStop(1,   'rgba(0,0,0,0)');
+  fctx.fillStyle = halo; fctx.fillRect(0, 0, W, H);
+
+  /* Hot-core bright ring */
+  const ring = fctx.createRadialGradient(cx, cy, R * 0.80, cx, cy, R * 1.18);
+  ring.addColorStop(0,    'rgba(0,180,255,0.0)');
+  ring.addColorStop(0.60, 'rgba(100,230,255,0.45)');
+  ring.addColorStop(0.75, 'rgba(180,240,255,0.65)');
+  ring.addColorStop(1,    'rgba(0,120,255,0.0)');
+  fctx.fillStyle = ring; fctx.fillRect(0, 0, W, H);
+
+  /* Inner sphere ambient glow */
+  const inner = fctx.createRadialGradient(cx, cy, 0, cx, cy, R * 0.98);
+  inner.addColorStop(0,   'rgba(5,15,60,0.0)');
+  inner.addColorStop(0.85,'rgba(0,140,255,0.15)');
+  inner.addColorStop(1,   'rgba(0,200,255,0.0)');
+  fctx.fillStyle = inner; fctx.beginPath(); fctx.arc(cx, cy, R * 0.98, 0, Math.PI * 2); fctx.fill();
 }
 
 function drawWireframe() {
   ctx.save();
+  /* Back hemisphere - very faint */
   ctx.lineWidth = 0.5;
   ctx.strokeStyle = 'rgba(0,180,255,0.03)';
   for (let i = 0; i <= 8; i++) {
@@ -391,8 +303,9 @@ function drawWireframe() {
     }
     ctx.stroke();
   }
+  /* Front hemisphere - subtle but clear */
   ctx.lineWidth = 0.8;
-  ctx.strokeStyle = 'rgba(0,220,255,0.05)';
+  ctx.strokeStyle = 'rgba(0,220,255,0.08)';
   for (let i = 0; i <= 8; i++) {
     const phi = (i / 8) * Math.PI;
     ctx.beginPath(); let first = true;
@@ -406,148 +319,61 @@ function drawWireframe() {
   ctx.restore();
 }
 
-// ─── Main Animation Loop ──────────────────────────────────────────────────────
 function animate(now) {
-  // Update expansion
-  updateExpansion(now);
-  
-  // Binary rain
-  drawBinaryRain();
-  
-  // Clear main canvases
   ctx.clearRect(0, 0, W, H);
-  flyCtx.clearRect(0, 0, W, H);
-  
-  // Rotation
-  if (!isDragging) rotY += currentRotSpeed;
-  
-  // Draw flame effect
+  if (!isDragging) rotY += 0.003;
   drawFlame(now);
-  
-  // Ambient glow
   const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 1.2);
-  g.addColorStop(0, 'rgba(10,40,120,0.03)');
-  g.addColorStop(1, 'transparent');
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, W, H);
-  
+  g.addColorStop(0, 'rgba(10,40,120,0.04)'); g.addColorStop(1, 'transparent');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
   drawWireframe();
-  
-  // Draw signatures on sphere
+  tickFlyIn(now);
+
   ctx.save();
-  ctx.beginPath();
-  ctx.arc(cx, cy, R * 1.1, 0, Math.PI * 2);
-  ctx.clip();
-  
-  const sigBaseW = R * 0.45;
-  const projected = signatures
-    .filter(s => !s.hidden)
-    .map(s => ({ s, ...project(s.fx, s.fy, s.fz) }))
-    .sort((a, b) => a.depth - b.depth);
-  
-  for (const { s, sx, sy, depth, depthScale } of projected) {
-    if (s.opacity < 1) s.opacity = Math.min(1, s.opacity + 0.02);
-    
+  ctx.beginPath(); ctx.arc(cx, cy, R * 1.08, 0, Math.PI * 2); ctx.clip();
+  const projected = signatures.map(s => { const p = project(s.fx, s.fy, s.fz); return { s, ...p }; }).sort((a, b) => a.depth - b.depth);
+  for (const item of projected) {
+    const { s, sx, sy, scale, depth } = item;
+    if (!s.glowCanvas || (flyIn && flyIn.phase === 'shrink' && s === signatures[signatures.length - 1])) continue;
+    if (s.opacity < 1) s.opacity = Math.min(1, s.opacity + 0.025);
     const depthNorm = (depth + R) / (2 * R);
-    const depthFade = 0.1 + 0.9 * Math.pow(depthNorm, 1.2);
-    
-    // 3D perspective: size changes with depth
-    const sw = sigBaseW * depthScale;
-    const sh = sw * (120 / 320);
-    
-    ctx.save();
-    ctx.globalAlpha = depthFade * s.opacity;
-    ctx.globalCompositeOperation = 'screen';
-    ctx.drawImage(s.glowCanvas, sx - sw/2, sy - sh/2, sw, sh);
-    ctx.restore();
+    const depthFade = 0.08 + 0.92 * Math.pow(depthNorm, 1.3);
+    const sw = sigBaseW() * Math.min(scale, 1.15), sh = sw * (120/320);
+    ctx.save(); ctx.globalAlpha = depthFade * s.opacity; ctx.globalCompositeOperation = 'screen'; ctx.drawImage(s.glowCanvas, sx - sw/2, sy - sh/2, sw, sh); ctx.restore();
   }
   ctx.restore();
-  
-  // Fly-in animation
-  if (flyIn) {
-    const elapsed = now - flyIn.t0;
-    const BIG_W = Math.min(W * 0.48, 500);
-    const BIG_H = BIG_W * (120/320);
-    let drawX = cx, drawY = cy, drawW = BIG_W, drawH = BIG_H, alpha = 1;
-
-    if (flyIn.phase === 'in') {
-      const p = Math.min(1, elapsed / FLY_IN_MS);
-      const ease = 1 - Math.pow(1 - p, 3);
-      alpha = ease;
-      drawW = BIG_W * (0.5 + 0.5 * ease);
-      drawH = BIG_H * (0.5 + 0.5 * ease);
-      if (p >= 1) { flyIn.phase = 'hold'; flyIn.t0 = now; }
-    } else if (flyIn.phase === 'hold') {
-      const pulse = 1 + 0.02 * Math.sin(elapsed * 0.005);
-      drawW = BIG_W * pulse; drawH = BIG_H * pulse;
-
-      const spotAlpha = 0.18 + 0.04 * Math.sin(now * 0.004);
-      const spot = flyCtx.createRadialGradient(cx, cy, 0, cx, cy, BIG_W * 0.9);
-      spot.addColorStop(0, `rgba(0,180,255,${spotAlpha})`);
-      spot.addColorStop(0.5, `rgba(0,80,200,${spotAlpha * 0.4})`);
-      spot.addColorStop(1, 'rgba(0,0,0,0)');
-      flyCtx.fillStyle = spot;
-      flyCtx.fillRect(0, 0, W, H);
-
-      if (elapsed >= HOLD_MS) {
-        flyIn.sigRef = commitToSphere(flyIn.glowCanvas, flyIn.name);
-        flyIn.shrinkSnap = project(flyIn.sigRef.fx, flyIn.sigRef.fy, flyIn.sigRef.fz);
-        flyIn.phase = 'shrink';
-        flyIn.t0 = now;
-      }
-    } else if (flyIn.phase === 'shrink') {
-      const p = Math.min(1, elapsed / SHRINK_MS);
-      const ease = p * p * (3 - 2 * p);
-      const snap = flyIn.shrinkSnap;
-      const targetW = (R * 0.45) * snap.depthScale;
-      const targetH = targetW * (120/320);
-      drawX = cx + (snap.sx - cx) * ease;
-      drawY = cy + (snap.sy - cy) * ease;
-      drawW = BIG_W + (targetW - BIG_W) * ease;
-      drawH = BIG_H + (targetH - BIG_H) * ease;
-      alpha = 1 - ease * 0.15;
-      if (p >= 1) {
-        flyIn.sigRef.hidden = false;
-        flyIn.sigRef.opacity = 1;
-        dequeue();
-      }
-    }
-
-    flyCtx.save();
-    flyCtx.globalAlpha = alpha;
-    flyCtx.globalCompositeOperation = 'screen';
-    flyCtx.drawImage(flyIn.glowCanvas, drawX - drawW/2, drawY - drawH/2, drawW, drawH);
-    flyCtx.restore();
-  }
-  
+  drawFlyIn(now);
   requestAnimationFrame(animate);
 }
+requestAnimationFrame(animate);
 
-// ─── Event Handlers ───────────────────────────────────────────────────────────
-canvas.addEventListener('mousedown', e => { isDragging = true; lastMX = e.clientX; lastMY = e.clientY; });
-canvas.addEventListener('mousemove', e => { if (!isDragging) return; rotY += (e.clientX - lastMX) * 0.005; rotX += (e.clientY - lastMY) * 0.003; lastMX = e.clientX; lastMY = e.clientY; });
-canvas.addEventListener('mouseup', () => isDragging = false);
-canvas.addEventListener('mouseleave', () => isDragging = false);
-canvas.addEventListener('touchstart', e => { isDragging = true; lastMX = e.touches[0].clientX; lastMY = e.touches[0].clientY; });
-canvas.addEventListener('touchmove', e => { if (!isDragging) return; e.preventDefault(); rotY += (e.touches[0].clientX - lastMX) * 0.005; rotX += (e.touches[0].clientY - lastMY) * 0.003; lastMX = e.touches[0].clientX; lastMY = e.touches[0].clientY; }, { passive: false });
-canvas.addEventListener('touchend', () => isDragging = false);
+function spawnRipple() {
+  const el = document.createElement('div'); el.className = 'ripple';
+  el.style.left = cx + 'px'; el.style.top = cy + 'px';
+  document.body.appendChild(el); setTimeout(() => el.remove(), 1500);
+}
 
-// ─── Data Handlers ────────────────────────────────────────────────────────────
-function handleNewRow(row, isInitial) {
-  if (!row || seenIds.has(row.id)) return;
+function addSilently(row) {
   seenIds.add(row.id);
-  
   const img = new Image();
-  img.crossOrigin = 'anonymous';
   img.onload = () => {
-    const gc = buildGlowCanvas(img);
-    if (isInitial) {
-      signatures.push({ glowCanvas: gc, name: row.name, fx: 0, fy: 0, fz: 1, opacity: 1, hidden: false });
-      repositionAll();
-      document.getElementById('sig-count').textContent = signatures.length;
-    } else {
-      enqueue(gc, row.name);
-    }
+    const key = row.id;
+    if (!glowCache.has(key)) glowCache.set(key, buildGlowCanvas(img));
+    signatures.push({ glowCanvas: glowCache.get(key), name: row.name, fx: 0, fy: 0, fz: 1, opacity: 0 });
+    repositionAll();
+    document.getElementById('sig-count').textContent = signatures.length;
+  };
+  img.src = row.image_data;
+}
+
+function handleNewRow(row) {
+  if (!row || seenIds.has(row.id)) return;
+  seenIds.add(row.id); spawnRipple();
+  const img = new Image();
+  img.onload = () => {
+    const key = row.id;
+    if (!glowCache.has(key)) glowCache.set(key, buildGlowCanvas(img));
+    enqueue(glowCache.get(key), row.name);
   };
   img.src = row.image_data;
 }
@@ -558,43 +384,49 @@ async function loadExisting() {
       headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` }
     });
     const data = await res.json();
-    if (Array.isArray(data)) data.forEach(row => handleNewRow(row, true));
+    if (Array.isArray(data)) data.forEach(row => addSilently(row));
   } catch(e) {}
 }
 
 let heartbeatInterval = null, realtimeRef = 1;
 function subscribeRealtime() {
-  const dot = document.getElementById('status-dot');
   const ws = new WebSocket(`wss://gpdkcalhqbvztctoofwh.supabase.co/realtime/v1/websocket?apikey=${SUPABASE_ANON}&vsn=1.0.0`);
-  
   ws.onopen = () => {
-    dot.style.background = '#f39c12';
-    ws.send(JSON.stringify({
-      topic: 'realtime:public:signatures',
-      event: 'phx_join',
-      payload: { config: { broadcast: { self: false }, presence: { key: '' }, postgres_changes: [{ event: 'INSERT', schema: 'public', table: 'signatures' }] } },
-      ref: String(realtimeRef++)
-    }));
+    ws.send(JSON.stringify({ topic: 'realtime:public:signatures', event: 'phx_join', payload: { config: { broadcast: { self: false }, presence: { key: '' }, postgres_changes: [{ event: 'INSERT', schema: 'public', table: 'signatures' }] } }, ref: String(realtimeRef++) }));
     heartbeatInterval = setInterval(() => ws.send(JSON.stringify({ topic: 'phoenix', event: 'heartbeat', payload: {}, ref: String(realtimeRef++) })), 25000);
   };
-  
   ws.onmessage = e => {
     let msg; try { msg = JSON.parse(e.data); } catch { return; }
-    if (msg.event === 'phx_reply' && msg.payload?.status === 'ok') dot.style.background = '#2ecc71';
-    if ((msg.event === 'INSERT' || msg.event === 'postgres_changes') && msg.payload?.data?.record) handleNewRow(msg.payload.data.record, false);
+    if ((msg.event === 'INSERT' || msg.event === 'postgres_changes') && msg.payload?.data?.record) handleNewRow(msg.payload.data.record);
   };
-  
-  ws.onerror = () => { dot.style.background = '#e74c3c'; };
-  ws.onclose = () => { dot.style.background = '#e74c3c'; clearInterval(heartbeatInterval); setTimeout(subscribeRealtime, 3000); };
+  ws.onclose = () => { clearInterval(heartbeatInterval); setTimeout(subscribeRealtime, 3000); };
 }
 
-// ─── Init ─────────────────────────────────────────────────────────────────────
-resize();
-window.addEventListener('resize', resize);
-expansionStartTime = performance.now();
+async function pollForNew() {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/signatures?select=*&order=created_at.desc&limit=10`, {
+      headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` }
+    });
+    const data = await res.json();
+    if (Array.isArray(data)) [...data].reverse().forEach(row => { if (!seenIds.has(row.id)) handleNewRow(row); });
+  } catch(e) {}
+}
 
-loadExisting().then(() => subscribeRealtime());
-requestAnimationFrame(animate);
+document.getElementById('clear-btn').addEventListener('click', () => document.getElementById('confirm-overlay').classList.add('show'));
+document.getElementById('btn-cancel').addEventListener('click', () => document.getElementById('confirm-overlay').classList.remove('show'));
+document.getElementById('btn-confirm').addEventListener('click', async () => {
+  document.getElementById('confirm-overlay').classList.remove('show');
+  signatures.length = 0; glowCache.clear(); seenIds.clear(); flyQueue.length = 0; flyIn = null;
+  document.getElementById('sig-count').textContent = '0';
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/signatures?id=neq.00000000-0000-0000-0000-000000000000`, {
+      method: 'DELETE',
+      headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }
+    });
+  } catch(e) {}
+});
+
+loadExisting().then(() => { subscribeRealtime(); setInterval(pollForNew, 5000); });
 </script>
 </body>
 </html>
