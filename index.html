@@ -311,30 +311,71 @@ function handleNewRow(row, isInitial) {
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
-async function init() {
-  const dot = document.getElementById('status-dot');
-
-  const { data, error } = await sb
-    .from('signatures')
-    .select('*')
-    .order('created_at', { ascending: true });
-
-  if (error) console.error('[Wall] fetch error:', error);
-  else (data || []).forEach(row => handleNewRow(row, true));
-
-  sb.channel('wall-inserts')
-    .on('postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'signatures' },
-      payload => {
-        console.log('[Wall] new signature:', payload.new?.id);
-        handleNewRow(payload.new, false);
-      }
-    )
-    .subscribe(status => {
-      if (status === 'SUBSCRIBED')                              dot.style.background = '#2ecc71';
-      else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') dot.style.background = '#e74c3c';
-      else                                                      dot.style.background = '#f39c12';
+async function loadExisting() {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/signatures?select=*&order=created_at.asc`, {
+      headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` }
     });
+    const data = await res.json();
+    if (Array.isArray(data)) data.forEach(row => handleNewRow(row, true));
+  } catch(e) {
+    console.error('[Wall] loadExisting error:', e);
+  }
+}
+
+let heartbeatInterval = null, realtimeRef = 1;
+function subscribeRealtime() {
+  const dot = document.getElementById('status-dot');
+  const ws = new WebSocket(`wss://gpdkcalhqbvztctoofwh.supabase.co/realtime/v1/websocket?apikey=${SUPABASE_ANON}&vsn=1.0.0`);
+  
+  ws.onopen = () => {
+    dot.style.background = '#f39c12'; // connecting
+    ws.send(JSON.stringify({
+      topic: 'realtime:public:signatures',
+      event: 'phx_join',
+      payload: {
+        config: {
+          broadcast: { self: false },
+          presence: { key: '' },
+          postgres_changes: [{ event: 'INSERT', schema: 'public', table: 'signatures' }]
+        }
+      },
+      ref: String(realtimeRef++)
+    }));
+    heartbeatInterval = setInterval(() => {
+      ws.send(JSON.stringify({ topic: 'phoenix', event: 'heartbeat', payload: {}, ref: String(realtimeRef++) }));
+    }, 25000);
+  };
+
+  ws.onmessage = e => {
+    let msg;
+    try { msg = JSON.parse(e.data); } catch { return; }
+    
+    // Check for successful join
+    if (msg.event === 'phx_reply' && msg.payload?.status === 'ok') {
+      dot.style.background = '#2ecc71'; // connected
+    }
+    
+    // Handle new signatures
+    if ((msg.event === 'INSERT' || msg.event === 'postgres_changes') && msg.payload?.data?.record) {
+      handleNewRow(msg.payload.data.record, false);
+    }
+  };
+
+  ws.onerror = () => {
+    dot.style.background = '#e74c3c'; // error
+  };
+
+  ws.onclose = () => {
+    dot.style.background = '#e74c3c'; // disconnected
+    clearInterval(heartbeatInterval);
+    setTimeout(subscribeRealtime, 3000); // auto-reconnect
+  };
+}
+
+async function init() {
+  await loadExisting();
+  subscribeRealtime();
 }
 
 // ─── Drag to rotate ───────────────────────────────────────────────────────────
