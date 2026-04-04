@@ -56,7 +56,7 @@
 <button id="clear-btn"></button>
 
 <script>
-// ─── Supabase v2 client ───────────────────────────────────────────────────────
+// ─── Supabase ─────────────────────────────────────────────────────────────────
 const SUPABASE_URL  = 'https://gpdkcalhqbvztctoofwh.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdwZGtjYWxocWJ2enRjdG9vZndoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxMjIwMTksImV4cCI6MjA5MDY5ODAxOX0.M3B25IWhogS_8hKONXOjcjn4rFaJcBhIYWB77q2Z-Ew';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
@@ -80,19 +80,6 @@ function resize() {
 }
 resize();
 window.addEventListener('resize', resize);
-
-// ─── Binary rain ──────────────────────────────────────────────────────────────
-function drawBinary() {
-  bctx.fillStyle = 'rgba(2,8,24,0.1)';
-  bctx.fillRect(0, 0, W, H);
-  bctx.fillStyle = '#00e5ff';
-  bctx.font = bFontSize + 'px monospace';
-  for (let i = 0; i < bDrops.length; i++) {
-    bctx.fillText(Math.random() > 0.5 ? '1' : '0', i * bFontSize, bDrops[i] * bFontSize);
-    if (bDrops[i] * bFontSize > H && Math.random() > 0.975) bDrops[i] = 0;
-    bDrops[i]++;
-  }
-}
 
 // ─── Glow canvas builder ──────────────────────────────────────────────────────
 function buildGlowCanvas(img) {
@@ -150,8 +137,7 @@ function project(fx, fy, fz) {
 function fibonacciPos(index, total) {
   const golden = Math.PI * (3 - Math.sqrt(5));
   const yRaw = 1 - ((index + 0.5) / Math.max(total, 1)) * 2;
-  const y = yRaw * 0.85;
-  const r = Math.sqrt(Math.max(0, 1 - y*y));
+  const y = yRaw * 0.85, r = Math.sqrt(Math.max(0, 1 - y*y));
   return { x: r * Math.cos(golden * index), y, z: r * Math.sin(golden * index) };
 }
 
@@ -171,7 +157,7 @@ function commitToSphere(glowCanvas, name) {
   return sig;
 }
 
-// ─── Fly-in animation queue ───────────────────────────────────────────────────
+// ─── Fly-in queue ─────────────────────────────────────────────────────────────
 const FLY_IN_MS = 800, HOLD_MS = 1800, SHRINK_MS = 900;
 const flyQueue = [];
 let flyIn = null;
@@ -199,7 +185,17 @@ function spawnRipple() {
 
 // ─── Render loop ──────────────────────────────────────────────────────────────
 function animate(now) {
-  drawBinary();
+  // Binary rain
+  bctx.fillStyle = 'rgba(2,8,24,0.1)';
+  bctx.fillRect(0, 0, W, H);
+  bctx.fillStyle = '#00e5ff';
+  bctx.font = bFontSize + 'px monospace';
+  for (let i = 0; i < bDrops.length; i++) {
+    bctx.fillText(Math.random() > 0.5 ? '1' : '0', i * bFontSize, bDrops[i] * bFontSize);
+    if (bDrops[i] * bFontSize > H && Math.random() > 0.975) bDrops[i] = 0;
+    bDrops[i]++;
+  }
+
   fctx.clearRect(0, 0, W, H);
   ctx.clearRect(0, 0, W, H);
   flyCtx.clearRect(0, 0, W, H);
@@ -249,6 +245,15 @@ function animate(now) {
     } else if (flyIn.phase === 'hold') {
       const pulse = 1 + 0.02 * Math.sin(elapsed * 0.005);
       drawW = BIG_W * pulse; drawH = BIG_H * pulse;
+
+      // Spotlight glow behind held signature
+      const spotAlpha = 0.18 + 0.04 * Math.sin(now * 0.004);
+      const spot = flyCtx.createRadialGradient(cx, cy, 0, cx, cy, BIG_W * 0.9);
+      spot.addColorStop(0,   `rgba(0,180,255,${spotAlpha})`);
+      spot.addColorStop(0.5, `rgba(0,80,200,${spotAlpha * 0.4})`);
+      spot.addColorStop(1,   'rgba(0,0,0,0)');
+      flyCtx.fillStyle = spot; flyCtx.fillRect(0, 0, W, H);
+
       if (elapsed >= HOLD_MS) {
         flyIn.sigRef     = commitToSphere(flyIn.glowCanvas, flyIn.name);
         flyIn.shrinkSnap = project(flyIn.sigRef.fx, flyIn.sigRef.fy, flyIn.sigRef.fz);
@@ -301,7 +306,7 @@ function handleNewRow(row, isInitial) {
       enqueue(gc, row.name);
     }
   };
-  img.onerror = () => console.warn('[SignatureWall] image load failed for row', row.id);
+  img.onerror = () => console.warn('[Wall] image load failed', row.id);
   img.src = row.image_data;
 }
 
@@ -309,37 +314,26 @@ function handleNewRow(row, isInitial) {
 async function init() {
   const dot = document.getElementById('status-dot');
 
-  // Fetch existing rows
   const { data, error } = await sb
     .from('signatures')
     .select('*')
     .order('created_at', { ascending: true });
 
-  if (error) {
-    console.error('[SignatureWall] initial fetch error:', error);
-  } else {
-    (data || []).forEach(row => handleNewRow(row, true));
-  }
+  if (error) console.error('[Wall] fetch error:', error);
+  else (data || []).forEach(row => handleNewRow(row, true));
 
-  // Subscribe to live inserts using Supabase Realtime v2
   sb.channel('wall-inserts')
-    .on(
-      'postgres_changes',
+    .on('postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'signatures' },
       payload => {
-        console.log('[SignatureWall] INSERT received', payload.new?.id);
+        console.log('[Wall] new signature:', payload.new?.id);
         handleNewRow(payload.new, false);
       }
     )
     .subscribe(status => {
-      console.log('[SignatureWall] realtime status:', status);
-      if (status === 'SUBSCRIBED') {
-        dot.style.background = '#2ecc71'; // green
-      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-        dot.style.background = '#e74c3c'; // red
-      } else {
-        dot.style.background = '#f39c12'; // amber – connecting
-      }
+      if (status === 'SUBSCRIBED')                              dot.style.background = '#2ecc71';
+      else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') dot.style.background = '#e74c3c';
+      else                                                      dot.style.background = '#f39c12';
     });
 }
 
