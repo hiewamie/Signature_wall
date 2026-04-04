@@ -1,4 +1,4 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -9,16 +9,12 @@
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root { --bg: #020818; --cyan: #00e5ff; --blue: #1a6cff; }
   body { background: var(--bg); color: #fff; font-family: 'Noto Sans SC', sans-serif; overflow: hidden; height: 100vh; width: 100vw; }
-
-  /* Deep space background */
   body::before {
     content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
     background:
       radial-gradient(ellipse 80% 60% at 50% 50%, rgba(10,30,100,0.55) 0%, transparent 70%),
       radial-gradient(ellipse 100% 100% at 50% 50%, rgba(2,8,24,1) 0%, transparent 100%);
   }
-
-  /* Subtle star field */
   body::after {
     content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
     background-image:
@@ -32,31 +28,17 @@
       radial-gradient(1px 1px at 30% 55%, rgba(255,255,255,0.25) 0%, transparent 100%);
     background-size: 800px 600px;
   }
-
   #sphere-canvas { position: fixed; inset: 0; z-index: 1; }
-  #flame-canvas { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
-
+  #orb-canvas    { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
   #title { position: fixed; top: 28px; left: 50%; transform: translateX(-50%); z-index: 10; text-align: center; pointer-events: none; }
-  #title h1 {
-    font-family: 'Orbitron', monospace; font-size: clamp(14px, 2vw, 22px);
-    font-weight: 700; letter-spacing: 0.3em; color: var(--cyan);
-    text-shadow: 0 0 20px rgba(0,229,255,0.7), 0 0 50px rgba(0,229,255,0.3);
-  }
+  #title h1 { font-family: 'Orbitron', monospace; font-size: clamp(14px, 2vw, 22px); font-weight: 700; letter-spacing: 0.3em; color: var(--cyan); text-shadow: 0 0 20px rgba(0,229,255,0.7), 0 0 50px rgba(0,229,255,0.3); }
   #title p { font-size: 12px; color: rgba(255,255,255,0.35); letter-spacing: 0.15em; margin-top: 4px; }
-
-  #counter {
-    position: fixed; bottom: 36px; left: 50%; transform: translateX(-50%);
-    z-index: 10; font-family: 'Orbitron', monospace; font-size: 11px;
-    letter-spacing: 0.25em; color: rgba(255,255,255,0.25); pointer-events: none;
-  }
+  #counter { position: fixed; bottom: 36px; left: 50%; transform: translateX(-50%); z-index: 10; font-family: 'Orbitron', monospace; font-size: 11px; letter-spacing: 0.25em; color: rgba(255,255,255,0.25); pointer-events: none; }
   #counter span { color: var(--cyan); font-size: 20px; font-weight: 700; }
-
   #status { position: fixed; top: 16px; right: 20px; z-index: 10; font-family: 'Orbitron', monospace; font-size: 10px; letter-spacing: 0.15em; color: rgba(255,255,255,0.2); display: flex; align-items: center; gap: 6px; }
   #status-dot { width: 6px; height: 6px; border-radius: 50%; background: #2ecc71; animation: pulse 2s infinite; }
   @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.3} }
-
   #clear-btn { position: fixed; top: 0; right: 0; width: 56px; height: 56px; z-index: 100; cursor: default; background: transparent; border: none; outline: none; }
-
   #confirm-overlay { display: none; position: fixed; inset: 0; z-index: 300; background: rgba(0,0,0,0.78); align-items: center; justify-content: center; }
   #confirm-overlay.show { display: flex; }
   #confirm-box { background: #080c1a; border: 1px solid rgba(0,229,255,0.28); border-radius: 14px; padding: 36px 44px; text-align: center; font-family: 'Orbitron', monospace; }
@@ -67,14 +49,13 @@
   #btn-confirm:hover { background: rgba(0,229,255,0.22); }
   #btn-cancel { background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.35); border: 1px solid rgba(255,255,255,0.1); }
   #btn-cancel:hover { background: rgba(255,255,255,0.09); }
-
   #new-sig-overlay { position: fixed; inset: 0; z-index: 20; pointer-events: none; display: flex; align-items: center; justify-content: center; }
   .ripple { position: fixed; border-radius: 50%; border: 1.5px solid var(--cyan); pointer-events: none; animation: rippleAnim 1.4s ease-out forwards; z-index: 5; }
   @keyframes rippleAnim { from{width:0;height:0;opacity:0.8;transform:translate(-50%,-50%);}to{width:600px;height:600px;opacity:0;transform:translate(-50%,-50%);} }
 </style>
 </head>
 <body>
-<canvas id="flame-canvas"></canvas>
+<canvas id="orb-canvas"></canvas>
 <canvas id="sphere-canvas"></canvas>
 <div id="title"><h1>GAME ON SIGNATURE WALL</h1><p>BY AMIE</p></div>
 <div id="counter"><span id="sig-count">0</span>&nbsp;&nbsp;SIGNATURES</div>
@@ -90,25 +71,262 @@
     </div>
   </div>
 </div>
-
 <script>
 const SUPABASE_URL  = 'https://gpdkcalhqbvztctoofwh.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdwZGtjYWxocWJ2enRjdG9vZndoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxMjIwMTksImV4cCI6MjA5MDY5ODAxOX0.M3B25IWhogS_8hKONXOjcjn4rFaJcBhIYWB77q2Z-Ew';
 
 const canvas = document.getElementById('sphere-canvas');
 const ctx    = canvas.getContext('2d');
-const flameCanvas = document.getElementById('flame-canvas');
-const fctx   = flameCanvas.getContext('2d');
+const orbCanvas = document.getElementById('orb-canvas');
+const octx   = orbCanvas.getContext('2d');
 
 let W, H, cx, cy, R;
 function resize() {
-  W = canvas.width  = flameCanvas.width  = innerWidth;
-  H = canvas.height = flameCanvas.height = innerHeight;
+  W = canvas.width  = orbCanvas.width  = innerWidth;
+  H = canvas.height = orbCanvas.height = innerHeight;
   cx = W / 2; cy = H / 2;
   R  = Math.min(W, H) * 0.33;
+  initNebula();
+  initMoons();
 }
 resize();
 window.addEventListener('resize', resize);
+
+/* ═══════════════════════════════════════════════
+   ENERGY ORB SYSTEM
+   ═══════════════════════════════════════════════ */
+
+// Nebula cloud particles drifting inside the orb
+let nebulaClouds = [];
+function initNebula() {
+  nebulaClouds = [];
+  const count = 28;
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const dist  = Math.random() * R * 0.78;
+    nebulaClouds.push({
+      x: Math.cos(angle) * dist,
+      y: Math.sin(angle) * dist,
+      vx: (Math.random() - 0.5) * 0.18,
+      vy: (Math.random() - 0.5) * 0.18,
+      size: R * (0.14 + Math.random() * 0.32),
+      alpha: 0.04 + Math.random() * 0.11,
+      hue: 200 + Math.random() * 40,   // deep blue → cyan
+      phase: Math.random() * Math.PI * 2,
+      speed: 0.0004 + Math.random() * 0.0007,
+    });
+  }
+}
+
+// Small moon/planet decorations orbiting
+let moons = [];
+function initMoons() {
+  moons = [];
+  const defs = [
+    { orbitR: 1.22, size: 5,  speed: 0.00035, phase: 0.3,  alpha: 0.75 },
+    { orbitR: 1.35, size: 8,  speed: 0.00022, phase: 1.9,  alpha: 0.65 },
+    { orbitR: 1.18, size: 4,  speed: 0.00048, phase: 3.7,  alpha: 0.60 },
+    { orbitR: 1.44, size: 6,  speed: 0.00018, phase: 5.1,  alpha: 0.55 },
+    { orbitR: 1.28, size: 3.5,speed: 0.00060, phase: 2.4,  alpha: 0.50 },
+    { orbitR: 1.50, size: 7,  speed: 0.00014, phase: 4.6,  alpha: 0.45 },
+  ];
+  defs.forEach(d => moons.push({ ...d }));
+}
+initNebula();
+initMoons();
+
+// Concentric ring definitions: [radiusMult, baseAlpha, strokeWidth, rotDir, rotSpeed, colorShift]
+const RINGS = [
+  { rm: 0.28, ba: 0.90, sw: 2.5,  dir:  1, rs: 0.00080, cs: 0   },  // innermost - fastest
+  { rm: 0.42, ba: 0.82, sw: 2.0,  dir: -1, rs: 0.00060, cs: 10  },
+  { rm: 0.56, ba: 0.78, sw: 3.0,  dir:  1, rs: 0.00045, cs: 20  },
+  { rm: 0.68, ba: 0.72, sw: 2.5,  dir: -1, rs: 0.00032, cs: -10 },
+  { rm: 0.78, ba: 0.68, sw: 3.5,  dir:  1, rs: 0.00022, cs: 15  },
+  { rm: 0.88, ba: 0.62, sw: 2.8,  dir: -1, rs: 0.00016, cs: -5  },
+  { rm: 0.96, ba: 0.78, sw: 4.0,  dir:  1, rs: 0.00010, cs: 5   },  // outermost bright ring
+];
+
+// Ring arc segment angles (each ring has 3-5 bright arc segments with gaps)
+const RING_ARCS = RINGS.map((_, i) => {
+  const count = 3 + (i % 3);
+  const arcs = [];
+  for (let k = 0; k < count; k++) {
+    const start = (k / count) * Math.PI * 2 + Math.random() * 0.3;
+    const span  = 0.4 + Math.random() * 1.2;
+    arcs.push({ start, span });
+  }
+  return arcs;
+});
+
+function drawEnergyOrb(now) {
+  octx.clearRect(0, 0, W, H);
+  const t = now * 0.001;
+
+  // ── Global energy pulse (breathing) ──
+  const breath = 0.5 + 0.5 * Math.sin(t * 0.6);         // slow 0→1→0
+  const fastBreath = 0.5 + 0.5 * Math.sin(t * 1.4);     // inner rings pulse faster
+  const glowIntensity = 0.85 + 0.15 * Math.sin(t * 0.38); // subtle global flicker
+
+  // ── Deep dark core ──
+  const coreGrad = octx.createRadialGradient(cx, cy, 0, cx, cy, R * 0.95);
+  coreGrad.addColorStop(0,    'rgba(0,2,18,0.96)');
+  coreGrad.addColorStop(0.45, 'rgba(0,8,40,0.92)');
+  coreGrad.addColorStop(0.75, 'rgba(0,15,70,0.82)');
+  coreGrad.addColorStop(0.92, 'rgba(0,30,110,0.55)');
+  coreGrad.addColorStop(1,    'rgba(0,50,180,0.0)');
+  octx.save();
+  octx.beginPath(); octx.arc(cx, cy, R * 0.95, 0, Math.PI * 2);
+  octx.fillStyle = coreGrad; octx.fill();
+  octx.restore();
+
+  // ── Nebula clouds drifting inside ──
+  octx.save();
+  octx.beginPath(); octx.arc(cx, cy, R * 0.90, 0, Math.PI * 2); octx.clip();
+  for (const c of nebulaClouds) {
+    c.x += c.vx; c.y += c.vy;
+    // Wrap inside orb
+    const dist = Math.sqrt(c.x*c.x + c.y*c.y);
+    if (dist > R * 0.80) { c.x *= 0.97; c.y *= 0.97; c.vx *= -0.6; c.vy *= -0.6; }
+    const pulse = 0.7 + 0.3 * Math.sin(t * c.speed * 1000 + c.phase);
+    const nebGrad = octx.createRadialGradient(cx + c.x, cy + c.y, 0, cx + c.x, cy + c.y, c.size * pulse);
+    const a = c.alpha * glowIntensity * pulse;
+    nebGrad.addColorStop(0,   `hsla(${c.hue},100%,65%,${a * 0.9})`);
+    nebGrad.addColorStop(0.5, `hsla(${c.hue},90%,50%,${a * 0.45})`);
+    nebGrad.addColorStop(1,   `hsla(${c.hue},80%,40%,0)`);
+    octx.globalCompositeOperation = 'screen';
+    octx.fillStyle = nebGrad;
+    octx.beginPath(); octx.arc(cx + c.x, cy + c.y, c.size * pulse, 0, Math.PI * 2);
+    octx.fill();
+  }
+  octx.globalCompositeOperation = 'source-over';
+  octx.restore();
+
+  // ── Concentric glowing rings ──
+  for (let i = 0; i < RINGS.length; i++) {
+    const ring = RINGS[i];
+    const arcs = RING_ARCS[i];
+
+    // Each ring rotates at its own speed/direction
+    const ringAngle = t * ring.rs * 1000 * ring.dir;
+
+    // Pulse: inner rings use fastBreath, outer use breath
+    const pulseFactor = i < 3
+      ? 1 + 0.055 * Math.sin(t * 1.4 + i * 0.8)   // inner faster pulse
+      : 1 + 0.035 * Math.sin(t * 0.6 + i * 0.5);   // outer slower pulse
+
+    const rr = R * ring.rm * pulseFactor;
+    const baseAlpha = ring.ba * glowIntensity;
+    const hue = 195 + ring.cs; // electric cyan base
+    const sat = 100;
+    const lit = 60 + (i === RINGS.length - 1 ? 15 : 0); // outermost slightly brighter
+
+    // Draw full dim ring first (track)
+    octx.save();
+    octx.beginPath();
+    octx.arc(cx, cy, rr, 0, Math.PI * 2);
+    octx.strokeStyle = `hsla(${hue},${sat}%,${lit}%,${baseAlpha * 0.12})`;
+    octx.lineWidth = ring.sw * 0.6;
+    octx.stroke();
+    octx.restore();
+
+    // Draw glowing arc segments with rotation
+    for (const arc of arcs) {
+      const aStart = arc.start + ringAngle;
+      const aEnd   = aStart + arc.span;
+
+      // Bright core stroke
+      octx.save();
+      octx.beginPath();
+      octx.arc(cx, cy, rr, aStart, aEnd);
+      octx.strokeStyle = `hsla(${hue},${sat}%,${lit}%,${baseAlpha * 0.92})`;
+      octx.lineWidth = ring.sw;
+      octx.lineCap = 'round';
+      octx.stroke();
+      octx.restore();
+
+      // Soft outer glow around the arc
+      octx.save();
+      octx.beginPath();
+      octx.arc(cx, cy, rr, aStart, aEnd);
+      octx.strokeStyle = `hsla(${hue},${sat}%,${lit + 15}%,${baseAlpha * 0.35})`;
+      octx.lineWidth = ring.sw * 4.5;
+      octx.lineCap = 'round';
+      octx.stroke();
+      octx.restore();
+
+      // Extra wide diffuse halo
+      octx.save();
+      octx.beginPath();
+      octx.arc(cx, cy, rr, aStart, aEnd);
+      octx.strokeStyle = `hsla(${hue + 15},80%,70%,${baseAlpha * 0.10})`;
+      octx.lineWidth = ring.sw * 10;
+      octx.lineCap = 'round';
+      octx.stroke();
+      octx.restore();
+    }
+  }
+
+  // ── Bright rim circle (full ring, outermost crisp edge) ──
+  const rimPulse = 1 + 0.03 * breath;
+  octx.save();
+  octx.beginPath(); octx.arc(cx, cy, R * 0.97 * rimPulse, 0, Math.PI * 2);
+  const rimAlpha = 0.55 * glowIntensity;
+  octx.strokeStyle = `rgba(100,230,255,${rimAlpha})`;
+  octx.lineWidth = 2;
+  octx.stroke();
+  // second softer rim
+  octx.strokeStyle = `rgba(0,200,255,${rimAlpha * 0.3})`;
+  octx.lineWidth = 8;
+  octx.stroke();
+  octx.restore();
+
+  // ── Outer glow aura ──
+  const auraR = R * (1.55 + 0.06 * breath);
+  const aura = octx.createRadialGradient(cx, cy, R * 0.90, cx, cy, auraR);
+  aura.addColorStop(0,    `rgba(0,160,255,${0.18 * glowIntensity})`);
+  aura.addColorStop(0.35, `rgba(0,200,255,${0.12 * glowIntensity})`);
+  aura.addColorStop(0.65, `rgba(0,150,255,${0.06 * glowIntensity})`);
+  aura.addColorStop(1,    'rgba(0,0,0,0)');
+  octx.fillStyle = aura; octx.fillRect(0, 0, W, H);
+
+  // ── Moons / planet dots orbiting ──
+  for (const m of moons) {
+    const angle = t * m.speed * 1000 + m.phase;
+    const mx = cx + Math.cos(angle) * R * m.orbitR;
+    const my = cy + Math.sin(angle) * R * m.orbitR * 0.3; // slight ellipse
+    const mpulse = 0.85 + 0.15 * Math.sin(t * 1.1 + m.phase);
+
+    // Moon glow
+    const mgGrad = octx.createRadialGradient(mx, my, 0, mx, my, m.size * 3 * mpulse);
+    mgGrad.addColorStop(0,   `rgba(180,235,255,${m.alpha * mpulse * 0.9})`);
+    mgGrad.addColorStop(0.4, `rgba(80,180,255,${m.alpha * mpulse * 0.4})`);
+    mgGrad.addColorStop(1,   'rgba(0,0,0,0)');
+    octx.save();
+    octx.globalCompositeOperation = 'screen';
+    octx.fillStyle = mgGrad;
+    octx.beginPath(); octx.arc(mx, my, m.size * 3 * mpulse, 0, Math.PI * 2);
+    octx.fill();
+    // Moon core
+    octx.fillStyle = `rgba(200,240,255,${m.alpha * mpulse})`;
+    octx.beginPath(); octx.arc(mx, my, m.size * mpulse, 0, Math.PI * 2);
+    octx.fill();
+    octx.restore();
+  }
+
+  // ── Center core energy burst ──
+  const coreSize = R * (0.12 + 0.04 * fastBreath);
+  const coreBurst = octx.createRadialGradient(cx, cy, 0, cx, cy, coreSize);
+  coreBurst.addColorStop(0,    `rgba(255,255,255,${0.55 * glowIntensity})`);
+  coreBurst.addColorStop(0.3,  `rgba(180,240,255,${0.35 * glowIntensity})`);
+  coreBurst.addColorStop(0.7,  `rgba(0,180,255,${0.18 * glowIntensity})`);
+  coreBurst.addColorStop(1,    'rgba(0,0,0,0)');
+  octx.fillStyle = coreBurst; octx.fillRect(0, 0, W, H);
+}
+
+/* ═══════════════════════════════════════════════
+   SIGNATURE SPHERE SYSTEM (unchanged logic,
+   smaller sigBaseW: 0.38 instead of 0.58)
+   ═══════════════════════════════════════════════ */
 
 const glowCache = new Map();
 function buildGlowCanvas(img) {
@@ -181,12 +399,10 @@ function drawFlyIn(now) {
   const BIG_W = Math.min(W * 0.48, 520);
   const BIG_H = BIG_W * SIG_ASPECT;
   let alpha = 1, scl = 1, sx = cx, sy = cy;
-
   if (flyIn.phase === 'in') {
     const p = Math.min(1, elapsed / FLY_IN_MS);
     const ease = 1 - Math.pow(1 - p, 3);
-    alpha = ease; scl = 0.2 + 0.8 * ease;
-    sy = cy + 40 * (1 - ease);
+    alpha = ease; scl = 0.2 + 0.8 * ease; sy = cy + 40 * (1 - ease);
   } else if (flyIn.phase === 'hold') {
     alpha = 1; scl = 1 + 0.02 * Math.sin(elapsed * 0.005);
   } else if (flyIn.phase === 'shrink') {
@@ -202,7 +418,6 @@ function drawFlyIn(now) {
     }
     sx = cx + (tx - cx) * ease; sy = cy + (ty - cy) * ease; scl = 1 + (tScl - 1) * ease; alpha = 1 - ease * 0.3;
   }
-
   if (flyIn.phase === 'in' || flyIn.phase === 'hold') {
     const glowR = BIG_W * scl * 0.9;
     const spotAlpha = flyIn.phase === 'hold' ? 0.18 + 0.04 * Math.sin(now * 0.004) : alpha * 0.18;
@@ -212,14 +427,15 @@ function drawFlyIn(now) {
     spot.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.save(); ctx.fillStyle = spot; ctx.fillRect(0, 0, W, H); ctx.restore();
   }
-
   const dw = BIG_W * scl, dh = BIG_H * scl;
   ctx.save(); ctx.globalAlpha = alpha; ctx.globalCompositeOperation = 'screen';
   ctx.drawImage(flyIn.glowCanvas, sx - dw/2, sy - dh/2, dw, dh);
   ctx.restore();
 }
 
-const sigBaseW   = () => R * 0.58;
+// ── Signature size: SMALLER at 0.38× (was 0.58×) ──
+const sigBaseW = () => R * 0.38;
+
 function project(fx, fy, fz) {
   let x = fx * R, y = fy * R, z = fz * R;
   const cY = Math.cos(rotY), sY = Math.sin(rotY);
@@ -258,41 +474,10 @@ canvas.addEventListener('touchstart', e => { isDragging = true; lastMX = e.touch
 canvas.addEventListener('touchmove',  e => { if (!isDragging) return; e.preventDefault(); rotY += (e.touches[0].clientX - lastMX)*0.005; rotX += (e.touches[0].clientY - lastMY)*0.003; lastMX = e.touches[0].clientX; lastMY = e.touches[0].clientY; }, { passive: false });
 canvas.addEventListener('touchend',   () => isDragging = false);
 
-/* Removed triangle/rings logic from flame effect */
-function drawFlame(now) {
-  fctx.clearRect(0, 0, W, H);
-  const t = now * 0.001;
-
-  /* Outermost soft blue halo */
-  const halo = fctx.createRadialGradient(cx, cy, R * 0.6, cx, cy, R * 1.9);
-  halo.addColorStop(0,   'rgba(0,100,255,0.0)');
-  halo.addColorStop(0.4, 'rgba(0,120,255,0.06)');
-  halo.addColorStop(0.75,'rgba(0,180,255,0.12)');
-  halo.addColorStop(0.88,'rgba(0,220,255,0.22)');
-  halo.addColorStop(1,   'rgba(0,0,0,0)');
-  fctx.fillStyle = halo; fctx.fillRect(0, 0, W, H);
-
-  /* Hot-core bright ring */
-  const ring = fctx.createRadialGradient(cx, cy, R * 0.80, cx, cy, R * 1.18);
-  ring.addColorStop(0,    'rgba(0,180,255,0.0)');
-  ring.addColorStop(0.60, 'rgba(100,230,255,0.45)');
-  ring.addColorStop(0.75, 'rgba(180,240,255,0.65)');
-  ring.addColorStop(1,    'rgba(0,120,255,0.0)');
-  fctx.fillStyle = ring; fctx.fillRect(0, 0, W, H);
-
-  /* Inner sphere ambient glow */
-  const inner = fctx.createRadialGradient(cx, cy, 0, cx, cy, R * 0.98);
-  inner.addColorStop(0,   'rgba(5,15,60,0.0)');
-  inner.addColorStop(0.85,'rgba(0,140,255,0.15)');
-  inner.addColorStop(1,   'rgba(0,200,255,0.0)');
-  fctx.fillStyle = inner; fctx.beginPath(); fctx.arc(cx, cy, R * 0.98, 0, Math.PI * 2); fctx.fill();
-}
-
 function drawWireframe() {
   ctx.save();
-  /* Back hemisphere - very faint */
   ctx.lineWidth = 0.5;
-  ctx.strokeStyle = 'rgba(0,180,255,0.03)';
+  ctx.strokeStyle = 'rgba(0,180,255,0.035)';
   for (let i = 0; i <= 8; i++) {
     const phi = (i / 8) * Math.PI;
     ctx.beginPath(); let first = true;
@@ -303,9 +488,8 @@ function drawWireframe() {
     }
     ctx.stroke();
   }
-  /* Front hemisphere - subtle but clear */
   ctx.lineWidth = 0.8;
-  ctx.strokeStyle = 'rgba(0,220,255,0.08)';
+  ctx.strokeStyle = 'rgba(0,220,255,0.07)';
   for (let i = 0; i <= 8; i++) {
     const phi = (i / 8) * Math.PI;
     ctx.beginPath(); let first = true;
@@ -321,11 +505,17 @@ function drawWireframe() {
 
 function animate(now) {
   ctx.clearRect(0, 0, W, H);
+
+  // Draw energy orb on its canvas
+  drawEnergyOrb(now);
+
   if (!isDragging) rotY += 0.003;
-  drawFlame(now);
+
+  // Soft core fill on sphere canvas
   const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 1.2);
   g.addColorStop(0, 'rgba(10,40,120,0.04)'); g.addColorStop(1, 'transparent');
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
   drawWireframe();
   tickFlyIn(now);
 
@@ -339,9 +529,12 @@ function animate(now) {
     const depthNorm = (depth + R) / (2 * R);
     const depthFade = 0.08 + 0.92 * Math.pow(depthNorm, 1.3);
     const sw = sigBaseW() * Math.min(scale, 1.15), sh = sw * (120/320);
-    ctx.save(); ctx.globalAlpha = depthFade * s.opacity; ctx.globalCompositeOperation = 'screen'; ctx.drawImage(s.glowCanvas, sx - sw/2, sy - sh/2, sw, sh); ctx.restore();
+    ctx.save(); ctx.globalAlpha = depthFade * s.opacity; ctx.globalCompositeOperation = 'screen';
+    ctx.drawImage(s.glowCanvas, sx - sw/2, sy - sh/2, sw, sh);
+    ctx.restore();
   }
   ctx.restore();
+
   drawFlyIn(now);
   requestAnimationFrame(animate);
 }
