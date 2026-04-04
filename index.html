@@ -4,24 +4,23 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>签名签到 · Signature Wall</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400&family=Orbitron:wght@400;700&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  :root { --bg: #020818; --cyan: #00e5ff; }
+  :root { --bg: #020818; --cyan: #00e5ff; --blue: #1a6cff; }
   body { background: var(--bg); color: #fff; font-family: 'Noto Sans SC', sans-serif; overflow: hidden; height: 100vh; width: 100vw; }
 
-  #binary-canvas { position: fixed; inset: 0; z-index: 0; opacity: 0.12; pointer-events: none; }
-  #sphere-canvas { position: fixed; inset: 0; z-index: 1; }
-  #flame-canvas  { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
-  #fly-canvas    { position: fixed; inset: 0; z-index: 2; pointer-events: none; }
-
   body::before {
-    content: ''; position: fixed; inset: 0; pointer-events: none; z-index: -1;
+    content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
     background:
       radial-gradient(ellipse 80% 60% at 50% 50%, rgba(10,30,100,0.55) 0%, transparent 70%),
       radial-gradient(ellipse 100% 100% at 50% 50%, rgba(2,8,24,1) 0%, transparent 100%);
   }
+
+  #binary-canvas { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+  #flame-canvas { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
+  #sphere-canvas { position: fixed; inset: 0; z-index: 2; }
+  #fly-canvas { position: fixed; inset: 0; z-index: 3; pointer-events: none; }
 
   #title { position: fixed; top: 28px; left: 50%; transform: translateX(-50%); z-index: 10; text-align: center; pointer-events: none; }
   #title h1 {
@@ -29,16 +28,20 @@
     font-weight: 700; letter-spacing: 0.3em; color: var(--cyan);
     text-shadow: 0 0 20px rgba(0,229,255,0.7), 0 0 50px rgba(0,229,255,0.3);
   }
-  #title p { font-size: 11px; letter-spacing: 0.2em; color: rgba(255,255,255,0.3); margin-top: 4px; }
+  #title p { font-size: 12px; color: rgba(255,255,255,0.35); letter-spacing: 0.15em; margin-top: 4px; }
 
-  #counter { position: fixed; bottom: 36px; left: 50%; transform: translateX(-50%); z-index: 10; font-family: 'Orbitron', monospace; font-size: 11px; letter-spacing: 0.25em; color: rgba(255,255,255,0.25); pointer-events: none; }
+  #counter {
+    position: fixed; bottom: 36px; left: 50%; transform: translateX(-50%);
+    z-index: 10; font-family: 'Orbitron', monospace; font-size: 11px;
+    letter-spacing: 0.25em; color: rgba(255,255,255,0.25); pointer-events: none;
+  }
   #counter span { color: var(--cyan); font-size: 20px; font-weight: 700; }
 
   #status { position: fixed; top: 16px; right: 20px; z-index: 10; font-family: 'Orbitron', monospace; font-size: 10px; letter-spacing: 0.15em; color: rgba(255,255,255,0.2); display: flex; align-items: center; gap: 6px; }
   #status-dot { width: 6px; height: 6px; border-radius: 50%; background: #f39c12; animation: pulse 2s infinite; }
   @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.3} }
 
-  #clear-btn { position: fixed; top: 0; right: 0; width: 56px; height: 56px; z-index: 100; cursor: default; background: transparent; border: none; }
+  #clear-btn { position: fixed; top: 0; right: 0; width: 56px; height: 56px; z-index: 100; cursor: default; background: transparent; border: none; outline: none; }
 
   .ripple { position: fixed; border-radius: 50%; border: 1.5px solid var(--cyan); pointer-events: none; animation: rippleAnim 1.4s ease-out forwards; z-index: 5; }
   @keyframes rippleAnim { from{width:0;height:0;opacity:0.8;transform:translate(-50%,-50%);}to{width:600px;height:600px;opacity:0;transform:translate(-50%,-50%);} }
@@ -56,57 +59,205 @@
 <button id="clear-btn"></button>
 
 <script>
-// ─── Supabase ─────────────────────────────────────────────────────────────────
 const SUPABASE_URL  = 'https://gpdkcalhqbvztctoofwh.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdwZGtjYWxocWJ2enRjdG9vZndoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxMjIwMTksImV4cCI6MjA5MDY5ODAxOX0.M3B25IWhogS_8hKONXOjcjn4rFaJcBhIYWB77q2Z-Ew';
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
-// ─── Canvases ─────────────────────────────────────────────────────────────────
-const canvas    = document.getElementById('sphere-canvas'), ctx    = canvas.getContext('2d');
-const fcanvas   = document.getElementById('flame-canvas'),  fctx   = fcanvas.getContext('2d');
-const bcanvas   = document.getElementById('binary-canvas'), bctx   = bcanvas.getContext('2d');
-const flyCanvas = document.getElementById('fly-canvas'),    flyCtx = flyCanvas.getContext('2d');
+const canvas = document.getElementById('sphere-canvas'), ctx = canvas.getContext('2d');
+const fcanvas = document.getElementById('flame-canvas'), fctx = fcanvas.getContext('2d');
+const bcanvas = document.getElementById('binary-canvas'), bctx = bcanvas.getContext('2d');
+const flyCanvas = document.getElementById('fly-canvas'), flyCtx = flyCanvas.getContext('2d');
 
-let W, H, cx, cy, R;
+let W, H, cx, cy, baseR, R;
 const bFontSize = 14;
-let bDrops = [];
+let binaryColumns = [];
 
 function resize() {
-  W = canvas.width = fcanvas.width = bcanvas.width = flyCanvas.width = window.innerWidth;
-  H = canvas.height = fcanvas.height = bcanvas.height = flyCanvas.height = window.innerHeight;
+  W = canvas.width = fcanvas.width = bcanvas.width = flyCanvas.width = innerWidth;
+  H = canvas.height = fcanvas.height = bcanvas.height = flyCanvas.height = innerHeight;
   cx = W / 2; cy = H / 2;
-  R  = Math.min(W, H) * 0.33;
-  bDrops = Array(Math.floor(W / bFontSize)).fill(1);
+  baseR = Math.min(W, H) * 0.28;
+  R = baseR;
+  initBinaryRain();
+  initFlameParticles();
 }
-resize();
-window.addEventListener('resize', resize);
 
-// ─── Glow canvas builder ──────────────────────────────────────────────────────
+// ─── Binary Rain (High Transparency) ──────────────────────────────────────────
+function initBinaryRain() {
+  binaryColumns = [];
+  const cols = Math.floor(W / bFontSize);
+  for (let i = 0; i < cols; i++) {
+    binaryColumns.push({
+      x: i * bFontSize,
+      y: Math.random() * H,
+      speed: 0.3 + Math.random() * 1.2,
+      chars: Array.from({ length: Math.ceil(H / bFontSize) + 15 }, () => Math.random() > 0.5 ? '1' : '0')
+    });
+  }
+}
+
+function drawBinaryRain() {
+  bctx.fillStyle = 'rgba(2, 8, 24, 0.08)';
+  bctx.fillRect(0, 0, W, H);
+  bctx.font = `${bFontSize}px monospace`;
+  
+  for (const col of binaryColumns) {
+    col.y += col.speed;
+    if (col.y > H + bFontSize * 20) col.y = -bFontSize * 10;
+    
+    for (let i = 0; i < col.chars.length; i++) {
+      const charY = col.y - i * bFontSize;
+      if (charY < -bFontSize || charY > H + bFontSize) continue;
+      
+      const fadeProgress = i / col.chars.length;
+      const alpha = 0.08 * (1 - fadeProgress * 0.7); // High transparency
+      const intensity = 1 - fadeProgress * 0.5;
+      
+      bctx.fillStyle = `rgba(0, ${Math.floor(200 * intensity)}, ${Math.floor(255 * intensity)}, ${alpha})`;
+      if (Math.random() < 0.005) col.chars[i] = Math.random() > 0.5 ? '1' : '0';
+      bctx.fillText(col.chars[i], col.x, charY);
+    }
+  }
+}
+
+// ─── Flame Particles (Blue Sun Effect) ────────────────────────────────────────
+let flameParticles = [];
+const NUM_FLAMES = 180;
+
+class FlameParticle {
+  constructor() { this.reset(); }
+  
+  reset() {
+    const angle = Math.random() * Math.PI * 2;
+    this.angle = angle;
+    this.radius = R * (0.92 + Math.random() * 0.12);
+    this.x = cx + Math.cos(angle) * this.radius;
+    this.y = cy + Math.sin(angle) * this.radius;
+    this.size = 3 + Math.random() * 12;
+    this.life = 1;
+    this.decay = 0.004 + Math.random() * 0.008;
+    this.vr = 0.2 + Math.random() * 0.6;
+    this.va = (Math.random() - 0.5) * 0.015;
+    this.flickerSpeed = 0.03 + Math.random() * 0.08;
+    this.flickerOffset = Math.random() * Math.PI * 2;
+  }
+  
+  update(now, currentR) {
+    this.life -= this.decay;
+    if (this.life <= 0) { this.reset(); this.radius = currentR * (0.92 + Math.random() * 0.12); return; }
+    this.radius += this.vr;
+    this.angle += this.va;
+    this.x = cx + Math.cos(this.angle) * this.radius;
+    this.y = cy + Math.sin(this.angle) * this.radius;
+    this.currentSize = this.size * (0.6 + 0.4 * Math.sin(now * this.flickerSpeed + this.flickerOffset));
+  }
+  
+  draw(ctx, now) {
+    const flicker = 0.5 + 0.5 * Math.sin(now * this.flickerSpeed + this.flickerOffset);
+    const alpha = this.life * 0.5 * flicker;
+    
+    const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.currentSize * 2.5);
+    gradient.addColorStop(0, `rgba(220, 250, 255, ${alpha})`);
+    gradient.addColorStop(0.15, `rgba(150, 220, 255, ${alpha * 0.85})`);
+    gradient.addColorStop(0.4, `rgba(50, 150, 255, ${alpha * 0.5})`);
+    gradient.addColorStop(0.7, `rgba(20, 80, 200, ${alpha * 0.25})`);
+    gradient.addColorStop(1, 'rgba(0, 40, 150, 0)');
+    
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.currentSize * 2.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function initFlameParticles() {
+  flameParticles = [];
+  for (let i = 0; i < NUM_FLAMES; i++) {
+    const p = new FlameParticle();
+    p.life = Math.random();
+    flameParticles.push(p);
+  }
+}
+
+// ─── Sphere Expansion Animation ───────────────────────────────────────────────
+let sphereScale = 1;
+let expansionPhase = 'idle';
+let expansionStartTime = 0;
+let baseRotSpeed = 0.003;
+let currentRotSpeed = baseRotSpeed;
+
+const EXPANSION_INTERVAL = 5000;
+const EXPANSION_DURATION = 2000;
+const HOLD_DURATION = 1500;
+const SHRINK_DURATION = 1800;
+
+function getMaxScale() {
+  return (Math.max(W, H) * 0.55) / baseR;
+}
+
+function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+function easeInOutCubic(t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
+
+function updateExpansion(now) {
+  const targetScale = getMaxScale();
+  
+  if (expansionPhase === 'idle') {
+    if (now - expansionStartTime > EXPANSION_INTERVAL) {
+      expansionPhase = 'expanding';
+      expansionStartTime = now;
+    }
+  } else if (expansionPhase === 'expanding') {
+    const elapsed = now - expansionStartTime;
+    const progress = Math.min(1, elapsed / EXPANSION_DURATION);
+    const eased = easeOutCubic(progress);
+    sphereScale = 1 + (targetScale - 1) * eased;
+    currentRotSpeed = baseRotSpeed * (1 + eased * 4);
+    if (progress >= 1) { expansionPhase = 'holding'; expansionStartTime = now; }
+  } else if (expansionPhase === 'holding') {
+    if (now - expansionStartTime > HOLD_DURATION) {
+      expansionPhase = 'shrinking';
+      expansionStartTime = now;
+    }
+  } else if (expansionPhase === 'shrinking') {
+    const elapsed = now - expansionStartTime;
+    const progress = Math.min(1, elapsed / SHRINK_DURATION);
+    const eased = easeInOutCubic(progress);
+    const targetScale = getMaxScale();
+    sphereScale = targetScale - (targetScale - 1) * eased;
+    currentRotSpeed = baseRotSpeed * (1 + (1 - eased) * 4);
+    if (progress >= 1) {
+      sphereScale = 1;
+      currentRotSpeed = baseRotSpeed;
+      expansionPhase = 'idle';
+      expansionStartTime = now;
+    }
+  }
+  
+  R = baseR * sphereScale;
+}
+
+// ─── Glow Canvas Builder ──────────────────────────────────────────────────────
 function buildGlowCanvas(img) {
   const GW = 320, GH = 120;
   const raw = document.createElement('canvas'); raw.width = GW; raw.height = GH;
   const rctx = raw.getContext('2d'); rctx.drawImage(img, 0, 0, GW, GH);
   const idata = rctx.getImageData(0, 0, GW, GH), d = idata.data;
-
   let cs = 0;
   [[0,0],[GW-1,0],[0,GH-1],[GW-1,GH-1]].forEach(([x,y]) => {
     const i = (y * GW + x) * 4; cs += (d[i] + d[i+1] + d[i+2]) / 3;
   });
   const darkOnLight = (cs / 4) > 180;
-
   for (let i = 0; i < d.length; i += 4) {
-    const r = d[i], g = d[i+1], b = d[i+2], a = d[i+3];
+    const r = d[i], g = d[i+1], bl = d[i+2], a = d[i+3];
     if (a < 10) { d[i+3] = 0; continue; }
-    let ink = darkOnLight ? 1 - (r+g+b)/(3*255) : a/255;
+    let ink = darkOnLight ? 1 - (r+g+bl)/(3*255) : a/255;
     if (ink < 0.06) { d[i+3] = 0; continue; }
     const t = Math.min(1, ink * 1.5);
-    d[i]   = Math.round(180 + 75 * t);
+    d[i] = Math.round(180 + 75 * t);
     d[i+1] = Math.round(220 + 35 * t);
     d[i+2] = 255;
     d[i+3] = Math.round(255 * Math.min(1, ink * 1.8));
   }
   rctx.putImageData(idata, 0, 0);
-
   const gc = document.createElement('canvas'); gc.width = GW; gc.height = GH;
   const gctx = gc.getContext('2d');
   [[9,0.45],[4,0.65],[1.5,0.85],[0,1]].forEach(([blur, alpha]) => {
@@ -119,19 +270,23 @@ function buildGlowCanvas(img) {
   return gc;
 }
 
-// ─── Sphere state ─────────────────────────────────────────────────────────────
+// ─── Sphere State ─────────────────────────────────────────────────────────────
 const signatures = [];
-const seenIds    = new Set();
-let rotY = 0, rotX = 0.28, isDragging = false, lastMX = 0;
+const seenIds = new Set();
+let rotY = 0, rotX = 0.28, isDragging = false, lastMX = 0, lastMY = 0;
 
 function project(fx, fy, fz) {
   let x = fx * R, y = fy * R, z = fz * R;
   const cY = Math.cos(rotY), sY = Math.sin(rotY);
-  let rx = x*cY - z*sY, rz = x*sY + z*cY;
+  let rx = x*cY - z*sY, rz = x*sY + z*cY, ry = y;
   const cX = Math.cos(rotX), sX = Math.sin(rotX);
-  let ry2 = y*cX - rz*sX, rz2 = y*sX + rz*cX;
-  const fov = 900, sc = fov / (fov + rz2);
-  return { sx: cx + rx*sc, sy: cy + ry2*sc, scale: sc, depth: rz2 };
+  let ry2 = ry*cX - rz*sX, rz2 = ry*sX + rz*cX;
+  const fov = 800, sc = fov / (fov + rz2);
+  
+  // 3D depth scale - closer to screen = bigger, farther = smaller
+  const depthScale = 0.5 + 0.7 * ((rz2 + R) / (2 * R));
+  
+  return { sx: cx + rx*sc, sy: cy + ry2*sc, scale: sc, depth: rz2, depthScale };
 }
 
 function fibonacciPos(index, total) {
@@ -142,9 +297,8 @@ function fibonacciPos(index, total) {
 }
 
 function repositionAll() {
-  const total = signatures.length;
   signatures.forEach((s, i) => {
-    const p = fibonacciPos(i, total);
+    const p = fibonacciPos(i, signatures.length);
     s.fx = p.x; s.fy = p.y; s.fz = p.z;
   });
 }
@@ -157,7 +311,7 @@ function commitToSphere(glowCanvas, name) {
   return sig;
 }
 
-// ─── Fly-in queue ─────────────────────────────────────────────────────────────
+// ─── Fly-in Queue ─────────────────────────────────────────────────────────────
 const FLY_IN_MS = 800, HOLD_MS = 1800, SHRINK_MS = 900;
 const flyQueue = [];
 let flyIn = null;
@@ -178,56 +332,138 @@ function spawnRipple() {
   const el = document.createElement('div');
   el.className = 'ripple';
   el.style.left = cx + 'px';
-  el.style.top  = cy + 'px';
+  el.style.top = cy + 'px';
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 1500);
 }
 
-// ─── Render loop ──────────────────────────────────────────────────────────────
-function animate(now) {
-  // Binary rain
-  bctx.fillStyle = 'rgba(2,8,24,0.1)';
-  bctx.fillRect(0, 0, W, H);
-  bctx.fillStyle = '#00e5ff';
-  bctx.font = bFontSize + 'px monospace';
-  for (let i = 0; i < bDrops.length; i++) {
-    bctx.fillText(Math.random() > 0.5 ? '1' : '0', i * bFontSize, bDrops[i] * bFontSize);
-    if (bDrops[i] * bFontSize > H && Math.random() > 0.975) bDrops[i] = 0;
-    bDrops[i]++;
-  }
-
+// ─── Draw Functions ───────────────────────────────────────────────────────────
+function drawFlame(now) {
   fctx.clearRect(0, 0, W, H);
+  
+  // Update and draw flame particles
+  for (const p of flameParticles) {
+    p.update(now, R);
+    p.draw(fctx, now);
+  }
+  
+  // Transparent glass sphere core
+  const coreGlow = fctx.createRadialGradient(cx, cy, 0, cx, cy, R * 1.05);
+  coreGlow.addColorStop(0, 'rgba(20, 60, 120, 0.03)');
+  coreGlow.addColorStop(0.6, 'rgba(30, 80, 150, 0.06)');
+  coreGlow.addColorStop(0.85, 'rgba(0, 120, 200, 0.12)');
+  coreGlow.addColorStop(0.95, 'rgba(0, 180, 255, 0.2)');
+  coreGlow.addColorStop(1, 'rgba(0, 200, 255, 0)');
+  fctx.fillStyle = coreGlow;
+  fctx.beginPath();
+  fctx.arc(cx, cy, R * 1.05, 0, Math.PI * 2);
+  fctx.fill();
+  
+  // Subtle glass edge
+  fctx.strokeStyle = 'rgba(100, 220, 255, 0.12)';
+  fctx.lineWidth = 1.5;
+  fctx.beginPath();
+  fctx.arc(cx, cy, R * 0.98, 0, Math.PI * 2);
+  fctx.stroke();
+  
+  // Inner highlight reflection
+  const hlX = cx - R * 0.35, hlY = cy - R * 0.35;
+  const highlight = fctx.createRadialGradient(hlX, hlY, 0, hlX, hlY, R * 0.35);
+  highlight.addColorStop(0, 'rgba(200, 240, 255, 0.08)');
+  highlight.addColorStop(1, 'rgba(200, 240, 255, 0)');
+  fctx.fillStyle = highlight;
+  fctx.beginPath();
+  fctx.arc(hlX, hlY, R * 0.35, 0, Math.PI * 2);
+  fctx.fill();
+}
+
+function drawWireframe() {
+  ctx.save();
+  ctx.lineWidth = 0.5;
+  ctx.strokeStyle = 'rgba(0,180,255,0.03)';
+  for (let i = 0; i <= 8; i++) {
+    const phi = (i / 8) * Math.PI;
+    ctx.beginPath(); let first = true;
+    for (let j = 0; j <= 64; j++) {
+      const theta = (j / 64) * Math.PI * 2;
+      const p = project(Math.sin(phi)*Math.cos(theta), Math.cos(phi), Math.sin(phi)*Math.sin(theta));
+      if (p.depth <= 0) { if (first) { ctx.moveTo(p.sx, p.sy); first = false; } else ctx.lineTo(p.sx, p.sy); } else first = true;
+    }
+    ctx.stroke();
+  }
+  ctx.lineWidth = 0.8;
+  ctx.strokeStyle = 'rgba(0,220,255,0.05)';
+  for (let i = 0; i <= 8; i++) {
+    const phi = (i / 8) * Math.PI;
+    ctx.beginPath(); let first = true;
+    for (let j = 0; j <= 64; j++) {
+      const theta = (j / 64) * Math.PI * 2;
+      const p = project(Math.sin(phi)*Math.cos(theta), Math.cos(phi), Math.sin(phi)*Math.sin(theta));
+      if (p.depth > 0) { if (first) { ctx.moveTo(p.sx, p.sy); first = false; } else ctx.lineTo(p.sx, p.sy); } else first = true;
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// ─── Main Animation Loop ──────────────────────────────────────────────────────
+function animate(now) {
+  // Update expansion
+  updateExpansion(now);
+  
+  // Binary rain
+  drawBinaryRain();
+  
+  // Clear main canvases
   ctx.clearRect(0, 0, W, H);
   flyCtx.clearRect(0, 0, W, H);
-
-  if (!isDragging) rotY += 0.003;
-
-  // Ambient globe glow
-  const ring = fctx.createRadialGradient(cx, cy, R * 0.8, cx, cy, R * 1.2);
-  ring.addColorStop(0,   'rgba(0,180,255,0)');
-  ring.addColorStop(0.7, 'rgba(100,230,255,0.3)');
-  ring.addColorStop(1,   'rgba(0,0,0,0)');
-  fctx.fillStyle = ring;
-  fctx.fillRect(0, 0, W, H);
-
-  // Sphere signatures (back → front)
+  
+  // Rotation
+  if (!isDragging) rotY += currentRotSpeed;
+  
+  // Draw flame effect
+  drawFlame(now);
+  
+  // Ambient glow
+  const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 1.2);
+  g.addColorStop(0, 'rgba(10,40,120,0.03)');
+  g.addColorStop(1, 'transparent');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+  
+  drawWireframe();
+  
+  // Draw signatures on sphere
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, R * 1.1, 0, Math.PI * 2);
+  ctx.clip();
+  
+  const sigBaseW = R * 0.45;
   const projected = signatures
     .filter(s => !s.hidden)
     .map(s => ({ s, ...project(s.fx, s.fy, s.fz) }))
     .sort((a, b) => a.depth - b.depth);
-
-  for (const { s, sx, sy, scale, depth } of projected) {
+  
+  for (const { s, sx, sy, depth, depthScale } of projected) {
     if (s.opacity < 1) s.opacity = Math.min(1, s.opacity + 0.02);
+    
     const depthNorm = (depth + R) / (2 * R);
-    const sw = (R * 0.58) * Math.min(scale, 1.15), sh = sw * (120/320);
+    const depthFade = 0.1 + 0.9 * Math.pow(depthNorm, 1.2);
+    
+    // 3D perspective: size changes with depth
+    const sw = sigBaseW * depthScale;
+    const sh = sw * (120 / 320);
+    
     ctx.save();
-    ctx.globalAlpha = (0.1 + 0.9 * depthNorm) * s.opacity;
+    ctx.globalAlpha = depthFade * s.opacity;
     ctx.globalCompositeOperation = 'screen';
     ctx.drawImage(s.glowCanvas, sx - sw/2, sy - sh/2, sw, sh);
     ctx.restore();
   }
-
-  // Fly-in overlay
+  ctx.restore();
+  
+  // Fly-in animation
   if (flyIn) {
     const elapsed = now - flyIn.t0;
     const BIG_W = Math.min(W * 0.48, 500);
@@ -235,45 +471,43 @@ function animate(now) {
     let drawX = cx, drawY = cy, drawW = BIG_W, drawH = BIG_H, alpha = 1;
 
     if (flyIn.phase === 'in') {
-      const p    = Math.min(1, elapsed / FLY_IN_MS);
+      const p = Math.min(1, elapsed / FLY_IN_MS);
       const ease = 1 - Math.pow(1 - p, 3);
       alpha = ease;
       drawW = BIG_W * (0.5 + 0.5 * ease);
       drawH = BIG_H * (0.5 + 0.5 * ease);
       if (p >= 1) { flyIn.phase = 'hold'; flyIn.t0 = now; }
-
     } else if (flyIn.phase === 'hold') {
       const pulse = 1 + 0.02 * Math.sin(elapsed * 0.005);
       drawW = BIG_W * pulse; drawH = BIG_H * pulse;
 
-      // Spotlight glow behind held signature
       const spotAlpha = 0.18 + 0.04 * Math.sin(now * 0.004);
       const spot = flyCtx.createRadialGradient(cx, cy, 0, cx, cy, BIG_W * 0.9);
-      spot.addColorStop(0,   `rgba(0,180,255,${spotAlpha})`);
+      spot.addColorStop(0, `rgba(0,180,255,${spotAlpha})`);
       spot.addColorStop(0.5, `rgba(0,80,200,${spotAlpha * 0.4})`);
-      spot.addColorStop(1,   'rgba(0,0,0,0)');
-      flyCtx.fillStyle = spot; flyCtx.fillRect(0, 0, W, H);
+      spot.addColorStop(1, 'rgba(0,0,0,0)');
+      flyCtx.fillStyle = spot;
+      flyCtx.fillRect(0, 0, W, H);
 
       if (elapsed >= HOLD_MS) {
-        flyIn.sigRef     = commitToSphere(flyIn.glowCanvas, flyIn.name);
+        flyIn.sigRef = commitToSphere(flyIn.glowCanvas, flyIn.name);
         flyIn.shrinkSnap = project(flyIn.sigRef.fx, flyIn.sigRef.fy, flyIn.sigRef.fz);
-        flyIn.phase      = 'shrink';
-        flyIn.t0         = now;
+        flyIn.phase = 'shrink';
+        flyIn.t0 = now;
       }
-
     } else if (flyIn.phase === 'shrink') {
-      const p    = Math.min(1, elapsed / SHRINK_MS);
+      const p = Math.min(1, elapsed / SHRINK_MS);
       const ease = p * p * (3 - 2 * p);
-      const snap    = flyIn.shrinkSnap;
-      const targetW = (R * 0.58) * Math.min(snap.scale, 1.15);
+      const snap = flyIn.shrinkSnap;
+      const targetW = (R * 0.45) * snap.depthScale;
       const targetH = targetW * (120/320);
-      drawX = cx    + (snap.sx - cx)    * ease;
-      drawY = cy    + (snap.sy - cy)    * ease;
+      drawX = cx + (snap.sx - cx) * ease;
+      drawY = cy + (snap.sy - cy) * ease;
       drawW = BIG_W + (targetW - BIG_W) * ease;
       drawH = BIG_H + (targetH - BIG_H) * ease;
       alpha = 1 - ease * 0.15;
       if (p >= 1) {
-        flyIn.sigRef.hidden  = false;
+        flyIn.sigRef.hidden = false;
         flyIn.sigRef.opacity = 1;
         dequeue();
       }
@@ -285,15 +519,24 @@ function animate(now) {
     flyCtx.drawImage(flyIn.glowCanvas, drawX - drawW/2, drawY - drawH/2, drawW, drawH);
     flyCtx.restore();
   }
-
+  
   requestAnimationFrame(animate);
 }
 
-// ─── Row handler ──────────────────────────────────────────────────────────────
+// ─── Event Handlers ───────────────────────────────────────────────────────────
+canvas.addEventListener('mousedown', e => { isDragging = true; lastMX = e.clientX; lastMY = e.clientY; });
+canvas.addEventListener('mousemove', e => { if (!isDragging) return; rotY += (e.clientX - lastMX) * 0.005; rotX += (e.clientY - lastMY) * 0.003; lastMX = e.clientX; lastMY = e.clientY; });
+canvas.addEventListener('mouseup', () => isDragging = false);
+canvas.addEventListener('mouseleave', () => isDragging = false);
+canvas.addEventListener('touchstart', e => { isDragging = true; lastMX = e.touches[0].clientX; lastMY = e.touches[0].clientY; });
+canvas.addEventListener('touchmove', e => { if (!isDragging) return; e.preventDefault(); rotY += (e.touches[0].clientX - lastMX) * 0.005; rotX += (e.touches[0].clientY - lastMY) * 0.003; lastMX = e.touches[0].clientX; lastMY = e.touches[0].clientY; }, { passive: false });
+canvas.addEventListener('touchend', () => isDragging = false);
+
+// ─── Data Handlers ────────────────────────────────────────────────────────────
 function handleNewRow(row, isInitial) {
   if (!row || seenIds.has(row.id)) return;
   seenIds.add(row.id);
-
+  
   const img = new Image();
   img.crossOrigin = 'anonymous';
   img.onload = () => {
@@ -306,11 +549,9 @@ function handleNewRow(row, isInitial) {
       enqueue(gc, row.name);
     }
   };
-  img.onerror = () => console.warn('[Wall] image load failed', row.id);
   img.src = row.image_data;
 }
 
-// ─── Init ─────────────────────────────────────────────────────────────────────
 async function loadExisting() {
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/signatures?select=*&order=created_at.asc`, {
@@ -318,9 +559,7 @@ async function loadExisting() {
     });
     const data = await res.json();
     if (Array.isArray(data)) data.forEach(row => handleNewRow(row, true));
-  } catch(e) {
-    console.error('[Wall] loadExisting error:', e);
-  }
+  } catch(e) {}
 }
 
 let heartbeatInterval = null, realtimeRef = 1;
@@ -329,61 +568,32 @@ function subscribeRealtime() {
   const ws = new WebSocket(`wss://gpdkcalhqbvztctoofwh.supabase.co/realtime/v1/websocket?apikey=${SUPABASE_ANON}&vsn=1.0.0`);
   
   ws.onopen = () => {
-    dot.style.background = '#f39c12'; // connecting
+    dot.style.background = '#f39c12';
     ws.send(JSON.stringify({
       topic: 'realtime:public:signatures',
       event: 'phx_join',
-      payload: {
-        config: {
-          broadcast: { self: false },
-          presence: { key: '' },
-          postgres_changes: [{ event: 'INSERT', schema: 'public', table: 'signatures' }]
-        }
-      },
+      payload: { config: { broadcast: { self: false }, presence: { key: '' }, postgres_changes: [{ event: 'INSERT', schema: 'public', table: 'signatures' }] } },
       ref: String(realtimeRef++)
     }));
-    heartbeatInterval = setInterval(() => {
-      ws.send(JSON.stringify({ topic: 'phoenix', event: 'heartbeat', payload: {}, ref: String(realtimeRef++) }));
-    }, 25000);
+    heartbeatInterval = setInterval(() => ws.send(JSON.stringify({ topic: 'phoenix', event: 'heartbeat', payload: {}, ref: String(realtimeRef++) })), 25000);
   };
-
+  
   ws.onmessage = e => {
-    let msg;
-    try { msg = JSON.parse(e.data); } catch { return; }
-    
-    // Check for successful join
-    if (msg.event === 'phx_reply' && msg.payload?.status === 'ok') {
-      dot.style.background = '#2ecc71'; // connected
-    }
-    
-    // Handle new signatures
-    if ((msg.event === 'INSERT' || msg.event === 'postgres_changes') && msg.payload?.data?.record) {
-      handleNewRow(msg.payload.data.record, false);
-    }
+    let msg; try { msg = JSON.parse(e.data); } catch { return; }
+    if (msg.event === 'phx_reply' && msg.payload?.status === 'ok') dot.style.background = '#2ecc71';
+    if ((msg.event === 'INSERT' || msg.event === 'postgres_changes') && msg.payload?.data?.record) handleNewRow(msg.payload.data.record, false);
   };
-
-  ws.onerror = () => {
-    dot.style.background = '#e74c3c'; // error
-  };
-
-  ws.onclose = () => {
-    dot.style.background = '#e74c3c'; // disconnected
-    clearInterval(heartbeatInterval);
-    setTimeout(subscribeRealtime, 3000); // auto-reconnect
-  };
+  
+  ws.onerror = () => { dot.style.background = '#e74c3c'; };
+  ws.onclose = () => { dot.style.background = '#e74c3c'; clearInterval(heartbeatInterval); setTimeout(subscribeRealtime, 3000); };
 }
 
-async function init() {
-  await loadExisting();
-  subscribeRealtime();
-}
+// ─── Init ─────────────────────────────────────────────────────────────────────
+resize();
+window.addEventListener('resize', resize);
+expansionStartTime = performance.now();
 
-// ─── Drag to rotate ───────────────────────────────────────────────────────────
-canvas.addEventListener('mousedown', e => { isDragging = true; lastMX = e.clientX; });
-window.addEventListener('mousemove', e => { if (isDragging) { rotY += (e.clientX - lastMX) * 0.005; lastMX = e.clientX; } });
-window.addEventListener('mouseup',   ()  => isDragging = false);
-
-init();
+loadExisting().then(() => subscribeRealtime());
 requestAnimationFrame(animate);
 </script>
 </body>
