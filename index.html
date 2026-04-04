@@ -313,28 +313,43 @@ function handleNewRow(row, isInitial) {
 // ─── Init ─────────────────────────────────────────────────────────────────────
 async function init() {
   const dot = document.getElementById('status-dot');
+  console.log('[v0] Initializing wall...');
 
   const { data, error } = await sb
     .from('signatures')
     .select('*')
     .order('created_at', { ascending: true });
 
-  if (error) console.error('[Wall] fetch error:', error);
-  else (data || []).forEach(row => handleNewRow(row, true));
+  if (error) console.error('[v0] Fetch error:', error);
+  else {
+    console.log('[v0] Loaded', (data || []).length, 'existing signatures');
+    (data || []).forEach(row => handleNewRow(row, true));
+  }
 
-  sb.channel('wall-inserts')
+  console.log('[v0] Setting up realtime subscription...');
+  
+  const channel = sb.channel('wall-inserts')
     .on('postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'signatures' },
       payload => {
-        console.log('[Wall] new signature:', payload.new?.id);
+        console.log('[v0] Realtime INSERT received:', payload);
         handleNewRow(payload.new, false);
       }
     )
-    .subscribe(status => {
-      if (status === 'SUBSCRIBED')                              dot.style.background = '#2ecc71';
-      else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') dot.style.background = '#e74c3c';
-      else                                                      dot.style.background = '#f39c12';
+    .subscribe((status, err) => {
+      console.log('[v0] Subscription status:', status, err || '');
+      if (status === 'SUBSCRIBED') {
+        dot.style.background = '#2ecc71';
+        console.log('[v0] Successfully subscribed to realtime!');
+      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        dot.style.background = '#e74c3c';
+        console.error('[v0] Subscription error:', status, err);
+      } else {
+        dot.style.background = '#f39c12';
+      }
     });
+  
+  console.log('[v0] Channel created:', channel);
 }
 
 // ─── Drag to rotate ───────────────────────────────────────────────────────────
